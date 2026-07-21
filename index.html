@@ -186,18 +186,39 @@
       display: flex; align-items: center; gap: 0.75rem;
       padding: 0.4rem 0; font-size: 0.85rem;
       border-bottom: 1px solid var(--border);
+      text-decoration: none; color: inherit; cursor: pointer;
+      transition: background 0.15s ease, transform 0.15s ease, padding-left 0.15s ease;
     }
     .status-row:last-child { border-bottom: none; }
-    .status-row .name { color: var(--fg); flex: 0 0 260px; }
+    .status-row .name { color: var(--fg); flex: 0 0 260px; transition: color 0.15s ease; }
     .status-row .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
     .status-row .up { color: var(--green); flex: 0 0 60px; }
     .status-row .ci { color: var(--dim); }
+    .status-row:hover,
+    .status-row:focus-visible {
+      background: rgba(255,255,255,0.035);
+      padding-left: 0.5rem;
+    }
+    .status-row:hover .name,
+    .status-row:focus-visible .name { color: var(--prompt); }
+    .status-row:focus-visible { outline: 2px solid var(--prompt); outline-offset: -2px; }
 
     .projects-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
       gap: 1.25rem;
     }
+    .projects-grid .term-window {
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+    .projects-grid .term-window:hover,
+    .projects-grid .term-window:focus-visible {
+      transform: translateY(-4px);
+      border-color: var(--prompt);
+      box-shadow: 0 28px 70px rgba(0,0,0,0.55);
+    }
+    .projects-grid .term-window:focus-visible { outline: 2px solid var(--prompt); outline-offset: 2px; }
     .proj-title { font-size: 0.86rem; }
     .proj-desc {
       font-size: 0.87rem; color: #a8b8b2; line-height: 1.75;
@@ -352,11 +373,11 @@
       </div>
       <div class="term-body">
         <div class="status-table">
-          <div class="status-row"><span class="dot"></span><span class="name">hospital-ai-orchestrator</span><span class="up">● UP</span><span class="ci">ci: passing · 26 tests · 92% coverage</span></div>
-          <div class="status-row"><span class="dot"></span><span class="name">omni-obs-platform</span><span class="up">● UP</span><span class="ci">ci: passing</span></div>
-          <div class="status-row"><span class="dot"></span><span class="name">production-platform</span><span class="up">● UP</span><span class="ci">ci: passing</span></div>
-          <div class="status-row"><span class="dot"></span><span class="name">enterprise-network-platform</span><span class="up">● UP</span><span class="ci">ci: passing</span></div>
-          <div class="status-row"><span class="dot"></span><span class="name">pipeline-surgeon-labs</span><span class="up">● UP</span><span class="ci">ci: passing · 6/6 fixtures</span></div>
+          <a class="status-row" href="projects/hospital-ai-orchestrator.html"><span class="dot"></span><span class="name">hospital-ai-orchestrator</span><span class="up">● UP</span><span class="ci">ci: passing · 26 tests · 92% coverage</span></a>
+          <a class="status-row" href="projects/omni-obs-platform.html"><span class="dot"></span><span class="name">omni-obs-platform</span><span class="up">● UP</span><span class="ci">ci: passing</span></a>
+          <a class="status-row" href="projects/production-platform.html"><span class="dot"></span><span class="name">production-platform</span><span class="up">● UP</span><span class="ci">ci: passing</span></a>
+          <a class="status-row" href="projects/enterprise-network-platform.html"><span class="dot"></span><span class="name">enterprise-network-platform</span><span class="up">● UP</span><span class="ci">ci: passing</span></a>
+          <a class="status-row" href="projects/pipeline-surgeon-labs.html"><span class="dot"></span><span class="name">pipeline-surgeon-labs</span><span class="up">● UP</span><span class="ci">ci: passing · 6/6 fixtures</span></a>
         </div>
       </div>
     </div>
@@ -364,7 +385,7 @@
     <div class="projects-grid">
 
       <!-- hospital-ai-orchestrator -->
-      <div class="term-window fade-up">
+      <div class="term-window fade-up" data-href="projects/hospital-ai-orchestrator.html" tabindex="0" role="link" aria-label="Open hospital-ai-orchestrator walkthrough">
         <div class="term-titlebar">
           <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
           <div class="term-title proj-title">hospital-ai-orchestrator</div>
@@ -400,7 +421,7 @@
       </div>
 
       <!-- omni-obs-platform -->
-      <div class="term-window fade-up">
+      <div class="term-window fade-up" data-href="projects/omni-obs-platform.html" tabindex="0" role="link" aria-label="Open omni-obs-platform walkthrough">
         <div class="term-titlebar">
           <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
           <div class="term-title proj-title">omni-obs-platform</div>
@@ -434,7 +455,7 @@
       </div>
 
       <!-- production-platform -->
-      <div class="term-window fade-up">
+      <div class="term-window fade-up" data-href="projects/production-platform.html" tabindex="0" role="link" aria-label="Open production-platform walkthrough">
         <div class="term-titlebar">
           <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
           <div class="term-title proj-title">production-platform</div>
@@ -468,7 +489,7 @@
       </div>
 
       <!-- enterprise-network-platform -->
-      <div class="term-window fade-up">
+      <div class="term-window fade-up" data-href="projects/enterprise-network-platform.html" tabindex="0" role="link" aria-label="Open enterprise-network-platform walkthrough">
         <div class="term-titlebar">
           <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
           <div class="term-title proj-title">enterprise-network-platform</div>
@@ -502,7 +523,7 @@
       </div>
 
       <!-- pipeline-surgeon-labs -->
-      <div class="term-window fade-up">
+      <div class="term-window fade-up" data-href="projects/pipeline-surgeon-labs.html" tabindex="0" role="link" aria-label="Open pipeline-surgeon-labs walkthrough">
         <div class="term-titlebar">
           <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
           <div class="term-title proj-title">pipeline-surgeon-labs</div>
@@ -787,6 +808,21 @@
     { threshold: 0.1 }
   );
   document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+  // Clickable project cards
+  document.querySelectorAll('.projects-grid .term-window[data-href]').forEach(card => {
+    const go = () => { window.location.href = card.dataset.href; };
+    card.addEventListener('click', e => {
+      if (e.target.closest('a')) return;
+      go();
+    });
+    card.addEventListener('keydown', e => {
+      if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('a')) {
+        e.preventDefault();
+        go();
+      }
+    });
+  });
 </script>
 </body>
 </html>
