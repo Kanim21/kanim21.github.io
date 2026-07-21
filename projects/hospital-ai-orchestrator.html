@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>hospital-ai-orchestrator — walkthrough</title>
+<meta name="description" content="An interactive walkthrough of hospital-ai-orchestrator: a LangGraph pipeline that plans a hospital discharge but freezes for a human before anything risky happens." />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #0a0e0f;
+    --bg2:         #0c1112;
+    --win-bg:      #0f1517;
+    --win-header:  #131a1c;
+    --border:      #1d2b26;
+    --border-brt:  #2a4038;
+    --fg:          #d6e0dd;
+    --muted:       #6b7d76;
+    --dim:         #4a5c56;
+    --prompt:      #4ade80;
+    --green:       #3fb950;
+    --amber:       #f0883e;
+    --cyan:        #22d3ee;
+    --blue:        #58a6ff;
+    --purple:      #c9a0ff;
+    --red:         #ff5f56;
+    --yellow:      #ffbd2e;
+    --radius:      8px;
+    --mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', 'Fira Code',
+            Menlo, Consolas, 'Liberation Mono', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.7;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse 70% 50% at 50% -10%, rgba(74,222,128,0.05) 0%, transparent 60%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+  }
+
+  a { color: inherit; }
+
+  .prose {
+    font-family: var(--sans);
+    line-height: 1.7;
+    max-width: 62ch;
+    color: var(--fg);
+  }
+  .prose.dim { color: var(--muted); }
+
+  /* ── TOPBAR ──────────────────────────────────────────────────────── */
+  .topbar {
+    position: fixed; top: 0; width: 100%; z-index: 100;
+    background: rgba(10,14,15,0.9);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    max-width: 1080px; margin: 0 auto;
+    padding: 0 1.5rem;
+    height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem;
+  }
+  .crumb { font-size: 0.8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .crumb a { text-decoration: none; }
+  .crumb a:hover { color: var(--prompt); }
+  .topbar-links { display: flex; gap: 1.5rem; list-style: none; flex-shrink: 0; }
+  .topbar-links a {
+    color: var(--muted); text-decoration: none; font-size: 0.8rem;
+    transition: color 0.2s;
+  }
+  .topbar-links a:hover { color: var(--prompt); }
+  .back-link {
+    color: var(--prompt); text-decoration: none; font-size: 0.8rem; flex-shrink: 0;
+  }
+  @media (max-width: 720px) { .topbar-links { display: none; } }
+
+  /* ── SECTION SHARED ──────────────────────────────────────────────── */
+  section { padding: 4.25rem 1.5rem; }
+  .container { max-width: 1080px; margin: 0 auto; }
+  .section-comment { font-size: 0.82rem; color: var(--dim); margin-bottom: 0.6rem; }
+  .section-comment::before { content: '# '; }
+  .section-title {
+    font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+    font-weight: 700; letter-spacing: -0.5px;
+    margin-bottom: 1.25rem;
+    display: flex; align-items: baseline; gap: 0.6rem;
+  }
+  .section-title .p { color: var(--prompt); font-size: 0.85em; }
+
+  /* ── HERO ────────────────────────────────────────────────────────── */
+  .hero-dive { padding-top: 6.5rem; }
+  .tagline {
+    font-size: clamp(1.4rem, 3.2vw, 2rem);
+    font-weight: 700; letter-spacing: -0.5px;
+    max-width: 34ch;
+    margin: 0.75rem 0 1.25rem;
+    line-height: 1.35;
+  }
+  .lede { margin-bottom: 1.5rem; font-size: 1rem; }
+  .callout {
+    font-size: 0.88rem; color: var(--fg);
+    font-family: var(--sans);
+    background: rgba(240,136,62,0.06);
+    border-left: 2px solid var(--amber);
+    padding: 0.85rem 1.1rem;
+    margin-bottom: 1.5rem;
+    max-width: 62ch;
+    line-height: 1.65;
+  }
+  .callout-lbl { color: var(--amber); font-family: var(--mono); font-size: 0.82rem; display: block; margin-bottom: 0.3rem; }
+  .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .tag {
+    font-size: 0.72rem; font-family: var(--mono);
+    padding: 0.15rem 0.5rem; border-radius: 4px;
+    background: rgba(34,211,238,0.07); color: var(--cyan);
+    border: 1px solid rgba(34,211,238,0.18);
+  }
+
+  /* ── ANALOGY ─────────────────────────────────────────────────────── */
+  .analogy {
+    border-left: 3px solid var(--border-brt);
+    padding-left: 1.5rem;
+  }
+  .analogy p { margin-bottom: 1.1rem; }
+  .analogy p:last-child { margin-bottom: 0; }
+
+  /* ── TERM WINDOW (reused chrome) ─────────────────────────────────── */
+  .term-window {
+    background: var(--win-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+  }
+  .term-titlebar {
+    background: var(--win-header);
+    border-bottom: 1px solid var(--border);
+    padding: 0.65rem 1rem;
+    display: flex; align-items: center; gap: 0.9rem;
+  }
+  .term-dots { display: flex; gap: 0.4rem; flex-shrink: 0; }
+  .term-dot { width: 11px; height: 11px; border-radius: 50%; }
+  .term-dot.red { background: var(--red); }
+  .term-dot.yellow { background: var(--yellow); }
+  .term-dot.green { background: var(--green); }
+  .term-title { font-size: 0.76rem; color: var(--muted); flex: 1; text-align: center; margin-right: 3.4rem; }
+  .term-body { padding: 1.5rem; }
+
+  /* ── DIAGRAM ─────────────────────────────────────────────────────── */
+  .dive-grid { display: grid; grid-template-columns: 1fr 320px; gap: 1.25rem; align-items: start; }
+  .svg-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; }
+  .svg-wrap:focus { outline: 1px solid var(--border-brt); }
+  svg#diagram { width: 100%; height: auto; display: block; }
+
+  .node rect { fill: var(--win-header); stroke: var(--border-brt); stroke-width: 1.25; transition: all 0.25s; }
+  .node .plain { fill: var(--fg); font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+  .node .sub { fill: var(--muted); font-family: var(--mono); font-size: 9.5px; }
+  .node { cursor: pointer; }
+  .node:hover rect { stroke: var(--prompt); }
+  .node.active rect { fill: rgba(240,136,62,0.14); stroke: var(--amber); stroke-width: 2; filter: url(#nodeGlow); }
+  .node.active .plain { fill: var(--amber); }
+  .node.dimmed { opacity: 0.32; }
+  .node:focus { outline: none; }
+  .node:focus rect { stroke: var(--cyan); stroke-width: 2; }
+
+  .edge { fill: none; stroke: var(--border-brt); stroke-width: 1.4; marker-end: url(#arrow); }
+  .edge.active { stroke: var(--amber); stroke-width: 2; stroke-dasharray: 6 4; animation: dashmove 0.6s linear infinite; marker-end: url(#arrowActive); }
+  @keyframes dashmove { to { stroke-dashoffset: -20; } }
+
+  /* tooltip */
+  .tooltip {
+    position: fixed; z-index: 200; pointer-events: none;
+    background: var(--win-header); border: 1px solid var(--border-brt);
+    border-radius: 6px; padding: 0.55rem 0.75rem; max-width: 240px;
+    font-family: var(--mono); font-size: 0.76rem; color: var(--fg);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    opacity: 0; transition: opacity 0.12s;
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip .tt-name { color: var(--prompt); font-weight: 600; margin-bottom: 0.2rem; }
+  .tooltip .tt-desc { color: var(--muted); font-family: var(--sans); line-height: 1.4; }
+
+  /* detail panel */
+  .panel {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 1.1rem; min-height: 300px;
+  }
+  .panel-name { font-size: 1rem; font-weight: 700; color: var(--fg); }
+  .panel-sub { font-size: 0.75rem; color: var(--dim); margin-bottom: 0.15rem; }
+  .panel-role { font-size: 0.78rem; color: var(--cyan); margin: 0.3rem 0 0.9rem; }
+  .panel-what { font-size: 0.87rem; margin-bottom: 1rem; }
+  .panel-placeholder { color: var(--muted); font-family: var(--sans); font-size: 0.88rem; line-height: 1.7; }
+  .chip-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--mono); font-size: 0.74rem; color: var(--fg);
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-brt);
+    border-radius: 4px; padding: 0.35rem 0.65rem; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .chip:hover { border-color: var(--prompt); color: var(--prompt); }
+  .chip.open { background: rgba(74,222,128,0.1); border-color: var(--prompt); color: var(--prompt); }
+  .chip-panel { font-size: 0.85rem; color: var(--fg); padding-top: 0.25rem; }
+  .chip-panel[hidden] { display: none; }
+
+  /* narration bar */
+  .narration-bar {
+    margin-top: 1rem; background: var(--win-header);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.9rem 1.1rem;
+  }
+  .narration-controls { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
+  .nbtn {
+    font-family: var(--mono); font-size: 0.76rem; color: var(--fg);
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-brt);
+    border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;
+  }
+  .nbtn:hover { border-color: var(--prompt); color: var(--prompt); }
+  .nbtn.primary { color: var(--prompt); border-color: rgba(74,222,128,0.4); }
+  .step-count { font-size: 0.75rem; color: var(--dim); margin-left: auto; }
+  .narration-text { font-family: var(--sans); font-size: 0.92rem; color: var(--fg); line-height: 1.6; min-height: 2.6em; }
+
+  @media (max-width: 900px) {
+    .dive-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── RISKS TABLE ─────────────────────────────────────────────────── */
+  .risk-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  .risk-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border-brt); }
+  .risk-table td { padding: 0.75rem 0.9rem; border-bottom: 1px solid var(--border); font-family: var(--sans); color: var(--fg); vertical-align: top; }
+  .risk-table td:first-child { color: var(--fg); font-weight: 500; }
+  @media (max-width: 640px) {
+    .risk-table thead { display: none; }
+    .risk-table, .risk-table tbody, .risk-table tr, .risk-table td { display: block; width: 100%; }
+    .risk-table tr { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.75rem; padding: 0.5rem 0.25rem; }
+    .risk-table td { border-bottom: none; padding: 0.4rem 0.75rem; }
+    .risk-table td::before { content: attr(data-label); display: block; font-family: var(--mono); font-size: 0.7rem; color: var(--dim); margin-bottom: 0.2rem; }
+  }
+  .not-box {
+    margin-top: 1.5rem; font-size: 0.86rem; font-family: var(--sans);
+    color: var(--fg); background: rgba(240,136,62,0.05);
+    border-left: 2px solid var(--amber); padding: 0.9rem 1.1rem; line-height: 1.65; max-width: 62ch;
+  }
+  .not-box b { color: var(--amber); font-family: var(--mono); }
+
+  /* ── GLOSSARY ────────────────────────────────────────────────────── */
+  details.glossary summary {
+    cursor: pointer; font-size: 0.9rem; color: var(--prompt);
+    padding: 0.75rem 0; list-style: none; user-select: none;
+  }
+  details.glossary summary::-webkit-details-marker { display: none; }
+  details.glossary summary::before { content: '▸ '; }
+  details.glossary[open] summary::before { content: '▾ '; }
+  .glossary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem; margin-top: 0.75rem;
+  }
+  .g-term { font-size: 0.85rem; color: var(--fg); font-weight: 600; margin-bottom: 0.25rem; }
+  .g-def { font-family: var(--sans); font-size: 0.83rem; color: var(--muted); line-height: 1.55; }
+
+  /* ── FOOTER ──────────────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1.5rem; text-align: center;
+    font-size: 0.78rem; color: var(--dim);
+    display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;
+  }
+  footer a { color: var(--dim); text-decoration: none; }
+  footer a:hover { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="crumb"><a href="../index.html">~</a> / <a href="../index.html#projects">projects</a> / hospital-ai-orchestrator</div>
+    <nav class="topbar-links">
+      <a href="#diagram">diagram</a>
+      <a href="#risks">what could go wrong</a>
+      <a href="#glossary">glossary</a>
+    </nav>
+    <a href="../index.html" class="back-link">← back</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero-dive">
+  <div class="container">
+    <p class="section-comment">case study · hospital-ai-orchestrator</p>
+    <h1 class="tagline">Software that plans a patient's discharge — but a person always approves the risky part.</h1>
+    <p class="lede prose">Hospitals move patients between beds, transport, and discharge constantly — usually routine, occasionally dangerous if rushed. This project builds an assistant that handles the checklists, then freezes and hands control to a person the moment a decision could actually hurt someone.</p>
+    <div class="callout">
+      <span class="callout-lbl"># self-audit</span>
+      This system checked its own work, found a real privacy leak in how it logged a reviewer's note, and fixed it the same day — before anyone outside the project ever saw it. Open <b style="color:var(--amber)">the redaction guardrail</b> in the diagram below for the full story.
+    </div>
+    <div class="tags">
+      <span class="tag">LangGraph</span>
+      <span class="tag">FastMCP / MCP</span>
+      <span class="tag">Presidio</span>
+      <span class="tag">FHIR R4</span>
+      <span class="tag">Human-in-the-Loop</span>
+      <span class="tag">FastAPI</span>
+      <span class="tag">Streamlit</span>
+    </div>
+  </div>
+</section>
+
+<!-- IDEA WITHOUT JARGON -->
+<section id="idea">
+  <div class="container">
+    <p class="section-comment">the idea, without the jargon</p>
+    <h2 class="section-title"><span class="p">$</span> how to think about this</h2>
+    <div class="analogy prose">
+      <p>Picture a hospital shift coordinator working a busy ward. They don't discharge patients, manage beds, or book transport themselves — they hand each case to the right specialist, in the right order, and never let two specialists touch the same record at once.</p>
+      <p>Every specialist gets information the same way: through a pharmacy counter, not a back door. They hand over a request — "show me this patient's chart" — instead of walking into the records room and reading whatever they like. That's the only way any of them touch real hospital data.</p>
+      <p>And when a decision could actually hurt someone — moving a patient into an already-occupied bed, or transporting someone with a specialised need and no sign-off — the coordinator stops entirely and calls over a real person. Nothing risky happens until someone accountable says yes.</p>
+    </div>
+  </div>
+</section>
+
+<!-- DIAGRAM -->
+<section id="diagram" style="background:var(--bg2);">
+  <div class="container">
+    <p class="section-comment">how the pieces fit together</p>
+    <h2 class="section-title"><span class="p">$</span> walk a real case through the system</h2>
+
+    <div class="term-window">
+      <div class="term-titlebar">
+        <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
+        <div class="term-title">architecture.svg</div>
+      </div>
+      <div class="term-body">
+        <div class="dive-grid">
+
+          <div class="svg-wrap" id="svgWrap" tabindex="0" aria-label="Architecture diagram, use arrow keys to step through the flow">
+            <svg id="diagram" viewBox="0 0 900 640" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#2a4038"></path>
+                </marker>
+                <marker id="arrowActive" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#f0883e"></path>
+                </marker>
+                <filter id="nodeGlow" x="-40%" y="-40%" width="180%" height="180%">
+                  <feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur>
+                  <feMerge>
+                    <feMergeNode in="blur"></feMergeNode>
+                    <feMergeNode in="SourceGraphic"></feMergeNode>
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <!-- edges -->
+              <path class="edge" id="e-frontdesk-coordinator" d="M150,80 L150,104"></path>
+              <path class="edge" id="e-coordinator-discharge" d="M150,168 L150,192"></path>
+              <path class="edge" id="e-discharge-mcp" d="M260,220 C 420,220 420,172 560,172"></path>
+              <path class="edge" id="e-mcp-fhir" d="M670,140 L670,80"></path>
+              <path class="edge" id="e-mcp-records" d="M670,204 L670,264"></path>
+              <path class="edge" id="e-discharge-risk" d="M150,256 L150,280"></path>
+              <path class="edge" id="e-risk-human" d="M150,344 L150,368"></path>
+              <path class="edge" id="e-human-phi" d="M260,400 L560,400"></path>
+              <path class="edge" id="e-phi-commit" d="M670,432 C 670,528 400,528 260,492"></path>
+              <path class="edge" id="e-commit-audit" d="M150,520 L150,544"></path>
+
+              <!-- nodes: main pipeline -->
+              <g class="node" tabindex="0" role="button" data-key="frontdesk" aria-label="The front desk — Streamlit, FastAPI, CLI">
+                <rect x="40" y="16" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="42" text-anchor="middle">The front desk</text>
+                <text class="sub" x="150" y="60" text-anchor="middle">Streamlit · FastAPI · CLI</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="coordinator" aria-label="The shift coordinator — LangGraph state machine">
+                <rect x="40" y="104" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="130" text-anchor="middle">The shift coordinator</text>
+                <text class="sub" x="150" y="148" text-anchor="middle">LangGraph state machine</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="discharge" aria-label="Discharge check — DischargeEvaluatorNode">
+                <rect x="40" y="192" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="218" text-anchor="middle">Discharge check</text>
+                <text class="sub" x="150" y="236" text-anchor="middle">DischargeEvaluatorNode</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="risk" aria-label="Risk check — RiskAssessmentNode">
+                <rect x="40" y="280" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="306" text-anchor="middle">Risk check</text>
+                <text class="sub" x="150" y="324" text-anchor="middle">RiskAssessmentNode</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="human" aria-label="The pause button — human review gate">
+                <rect x="40" y="368" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="394" text-anchor="middle">The pause button</text>
+                <text class="sub" x="150" y="412" text-anchor="middle">Human review gate</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="commit" aria-label="The commit team — bed manager and transport dispatcher">
+                <rect x="40" y="456" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="482" text-anchor="middle">The commit team</text>
+                <text class="sub" x="150" y="500" text-anchor="middle">Bed manager + transport dispatcher</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="audit" aria-label="The permanent record — append-only audit log">
+                <rect x="40" y="544" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="570" text-anchor="middle">The permanent record</text>
+                <text class="sub" x="150" y="588" text-anchor="middle">Append-only audit log</text>
+              </g>
+
+              <!-- nodes: support column -->
+              <g class="node" tabindex="0" role="button" data-key="fhir" aria-label="The chart-format checker — FHIR R4B validator">
+                <rect x="560" y="16" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="42" text-anchor="middle">The chart-format checker</text>
+                <text class="sub" x="670" y="60" text-anchor="middle">FHIR R4B validator</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="mcp" aria-label="The pharmacy counter — MCP tool layer, FastMCP">
+                <rect x="560" y="140" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="166" text-anchor="middle">The pharmacy counter</text>
+                <text class="sub" x="670" y="184" text-anchor="middle">MCP tool layer — FastMCP</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="records" aria-label="The paper trail — file-backed mock records store">
+                <rect x="560" y="264" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="290" text-anchor="middle">The paper trail</text>
+                <text class="sub" x="670" y="308" text-anchor="middle">File-backed mock records</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="phi" aria-label="The redaction guardrail — Presidio PHI filter">
+                <rect x="560" y="368" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="394" text-anchor="middle">The redaction guardrail</text>
+                <text class="sub" x="670" y="412" text-anchor="middle">Presidio-backed PHI filter</text>
+              </g>
+            </svg>
+          </div>
+
+          <div class="panel" id="panel">
+            <div class="panel-placeholder">Hover a box for a quick description, click one for the full detail, or press play below to walk through a real case.</div>
+          </div>
+
+        </div>
+
+        <div class="narration-bar">
+          <div class="narration-controls">
+            <button class="nbtn" id="resetBtn" title="Reset">⟲ reset</button>
+            <button class="nbtn" id="prevBtn" title="Previous step">⟨ prev</button>
+            <button class="nbtn primary" id="playBtn" title="Play / pause">▶ play</button>
+            <button class="nbtn" id="nextBtn" title="Next step">next ⟩</button>
+            <span class="step-count" id="stepCount">step 0 / 11</span>
+          </div>
+          <p class="narration-text" id="narrationText">Press play to walk a real patient case through the system, step by step.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RISKS -->
+<section id="risks">
+  <div class="container">
+    <p class="section-comment">what could go wrong</p>
+    <h2 class="section-title"><span class="p">$</span> failure modes, handled on purpose</h2>
+
+    <table class="risk-table">
+      <thead>
+        <tr><th>If this happens</th><th>What the system does</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-label="If this happens">Someone asks about a patient who doesn't exist</td>
+          <td data-label="What the system does">A safety net catches the failure and stops cleanly with a labelled error — no crash, no half-finished bed change.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">A reviewer's note contains a name, email, or phone number</td>
+          <td data-label="What the system does">The note passes through the same redaction filter as everything else before it's ever logged — the fix for the project's one real leak.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">The target bed is already occupied by someone else</td>
+          <td data-label="What the system does">Flagged high risk immediately. The workflow pauses and waits for a person instead of overriding the bed.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">A transfer needs supervisor sign-off that isn't on file</td>
+          <td data-label="What the system does">Flagged high risk and sent to a human. Nothing moves without that sign-off, or an explicit approval instead.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">No transport staff are available on the unit</td>
+          <td data-label="What the system does">Flagged medium risk — enough to pause the workflow rather than dispatch into a staffing gap.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="not-box">
+      <b># what this project is not:</b> a certified clinical system. Every patient is fictional, the privacy filter is explicitly prototype-grade rather than a certified de-identification tool, records live in plain files with no real access control, and "risk" is a fixed checklist, not a clinician's judgement.
+    </div>
+  </div>
+</section>
+
+<!-- GLOSSARY -->
+<section id="glossary" style="background:var(--bg2); padding-top:2rem; padding-bottom:3rem;">
+  <div class="container">
+    <details class="glossary">
+      <summary># glossary — 10 terms, click to expand</summary>
+      <div class="glossary-grid">
+        <div><div class="g-term">FHIR</div><div class="g-def">The standard shape hospital computer systems use to describe a patient's record, so different systems can understand each other.</div></div>
+        <div><div class="g-term">PHI</div><div class="g-def">Protected Health Information — any detail that could identify a patient, like a name or health card number.</div></div>
+        <div><div class="g-term">PHIPA</div><div class="g-def">Ontario's health-privacy law. It requires collecting and showing only the minimum identifying information necessary.</div></div>
+        <div><div class="g-term">MCP</div><div class="g-def">Model Context Protocol — a fixed, limited set of doors an AI is allowed to use to touch real data.</div></div>
+        <div><div class="g-term">LangGraph</div><div class="g-def">A way of writing a multi-step process as an explicit flowchart, so you can see exactly what happens next.</div></div>
+        <div><div class="g-term">Human-in-the-loop</div><div class="g-def">A checkpoint where a workflow pauses and waits for a real person's decision before continuing.</div></div>
+        <div><div class="g-term">Redaction</div><div class="g-def">Automatically blacking out identifying information from text before it's stored or shown.</div></div>
+        <div><div class="g-term">Audit trail</div><div class="g-def">A permanent, add-only record of every action taken, so anything can be reviewed later.</div></div>
+        <div><div class="g-term">Error boundary</div><div class="g-def">A safety wrapper that catches a failure and turns it into a clean, labelled stop instead of a crash.</div></div>
+        <div><div class="g-term">Checkpointing</div><div class="g-def">Saving a workflow's exact state so it can pause — sometimes for a long time — and resume later.</div></div>
+      </div>
+    </details>
+  </div>
+</section>
+
+<footer>
+  <a href="https://github.com/Kanim21/hospital-ai-orchestrator" target="_blank" rel="noopener">github ↗</a>
+  <a href="../index.html">← back to all projects</a>
+</footer>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-name" id="ttName"></div>
+  <div class="tt-desc" id="ttDesc"></div>
+</div>
+
+<script>
+  var NODES = {
+    frontdesk: {
+      plain: "The front desk", tech: "Streamlit · FastAPI · CLI", role: "Where a case begins",
+      tip: "A nurse or clerk starts a case from a dashboard, an API, or a terminal.",
+      what: "A nurse or clerk picks a patient and starts the workflow — from a web dashboard, an API, or the command line.",
+      why: "Three different people need to trigger the same workflow — a clinician clicking buttons, another system calling an API, a developer testing from a terminal — so all three share one entry point.",
+      tradeoff: "All three interfaces share one in-process workflow engine. Fine for a single demo session — a real hospital would need this to run independently for hundreds of simultaneous cases."
+    },
+    coordinator: {
+      plain: "The shift coordinator", tech: "LangGraph state machine", role: "Routes the case",
+      tip: "Moves the case through discharge, risk, and a human pause, in a fixed order.",
+      what: "Moves a patient's case through discharge check, risk check, and — when needed — a human pause, in a fixed, explicit order.",
+      why: "Hospital workflows have a correct order. Writing that order as an explicit flowchart, instead of scattered code, makes it possible to see and prove exactly what happens next.",
+      tradeoff: "The order is hard-coded, not the AI's judgement call. Safer and easier to audit — but it can't invent a new response to a situation its designer didn't foresee."
+    },
+    discharge: {
+      plain: "Discharge check", tech: "DischargeEvaluatorNode", role: "First specialist",
+      tip: "Confirms sign-offs and labs are in before anything else happens.",
+      what: "Confirms a patient is actually ready to leave: attending physician, pharmacy, and case management sign-offs are all in, and labs are back.",
+      why: "Nothing downstream — a bed change, a transport booking — should happen for a patient who isn't really cleared yet.",
+      tradeoff: "Readiness is a fixed checklist, not clinical judgement. A real deployment still needs an actual clinician to sign off, not just a box ticked."
+    },
+    risk: {
+      plain: "Risk check", tech: "RiskAssessmentNode", role: "Second specialist",
+      tip: "Scores the planned bed change or transport before anything is committed.",
+      what: "Scores the planned bed change or transport as low, medium, or high risk before anything is actually committed.",
+      why: "Some actions are hard to undo — occupying a bed, dispatching a vehicle. Those deserve a safety check before they happen, not after.",
+      tradeoff: "The rules are simple, explainable conditions — bed already occupied? staff missing? sign-off absent? — deliberately simple, at the cost of the nuance a real risk model would capture."
+    },
+    human: {
+      plain: "The pause button", tech: "Human review gate — interrupt_before", role: "Where the AI stops",
+      tip: "Freezes the whole workflow until a real person approves or rejects it.",
+      what: "For medium or high-risk actions, the entire workflow freezes and waits for a real person to approve or reject it.",
+      why: "Some decisions shouldn't be made by an automated system alone, however well it reasons. This keeps a person in charge of anything with real consequences.",
+      tradeoff: "The threshold for pausing is fixed and always the same — simple to audit, but it can't adapt to a context its designer didn't anticipate."
+    },
+    commit: {
+      plain: "The commit team", tech: "Bed manager + transport dispatcher", role: "Where the action happens",
+      tip: "Updates the bed, then books transport — only after clearance.",
+      what: "Updates the bed record, then books transport — only after a plan has been cleared as low-risk or explicitly approved by a person.",
+      why: "Deciding and acting are kept as two separate, ordered steps. Nothing changes in the real record until clearance has actually happened.",
+      tradeoff: "That ordering is enforced by workflow code, not the database. Every step here also runs inside a safety net that catches failures and stops cleanly — added after a self-audit found the pipeline had no error handling at all."
+    },
+    audit: {
+      plain: "The permanent record", tech: "Append-only audit log", role: "The accountability trail",
+      tip: "Logs every action, risk flag, approval, and redaction, permanently.",
+      what: "Every action — what happened, why, what risk level, who approved it, what was redacted — is written to a permanent, append-only log.",
+      why: "A hospital operation needs a full record afterward: who decided what, and on what basis. This is what makes the whole system reviewable.",
+      tradeoff: "It's a flat file, not a real database — simple and tamper-evident-ish, but with no indexing or access control. It would need hardening for real use."
+    },
+    fhir: {
+      plain: "The chart-format checker", tech: "FHIR R4B validator", role: "Checks the shape of the data",
+      tip: "Rejects malformed patient records before any specialist sees them.",
+      what: "Every patient record is checked against the standard hospital data format before any specialist is allowed to read it.",
+      why: "A malformed record should fail loudly and immediately, not quietly corrupt a discharge decision three steps later.",
+      tradeoff: "It only checks that the data is shaped correctly — not that it's clinically correct. A well-formed record can still be medically wrong."
+    },
+    mcp: {
+      plain: "The pharmacy counter", tech: "MCP tool layer — FastMCP", role: "The only door to hospital data",
+      tip: "Every specialist requests a named action instead of touching data directly.",
+      what: "Every specialist asks for a named, pre-approved action instead of reaching directly into hospital records — like handing over a prescription instead of walking into the dispensary.",
+      why: "Letting an AI-driven process touch a database directly is how small bugs become big incidents. A fixed menu of allowed actions is easy to audit and hard to misuse.",
+      tradeoff: "Every request spawns a brand-new, isolated process. Simple and crash-safe, but nothing can be kept in memory between calls — everything has to round-trip through a file."
+    },
+    records: {
+      plain: "The paper trail", tech: "File-backed mock records store", role: "Where bed & transport status lives",
+      tip: "Bed inventory and the transport log, kept as real files, not memory.",
+      what: "Bed inventory and the transport log are kept as real files on disk, not variables that vanish when the program restarts.",
+      why: "A human approval pause can sit open for a long time in the real world — the workflow's state has to survive a restart, not just live in memory.",
+      tradeoff: "Plain files have no real concurrency control. Fine for one case at a time in a demo; a real hospital's simultaneous traffic would need a proper database."
+    },
+    phi: {
+      plain: "The redaction guardrail", tech: "Presidio-backed PHI filter", role: "Scrubs identifying details",
+      tip: "Blacks out names, phone numbers, and IDs from free text before logging.",
+      what: "Scans any free text — like a reviewer's note — for names, phone numbers, or health card numbers, and blacks them out before it reaches a log.",
+      why: "This exact gap once caused a real leak: a reviewer's note went into the audit trail unredacted, because it was the one field that hadn't already passed through a validated record. A same-day fix — caught by the project's own automated audit, not an outside reviewer — closed it and added a regression test.",
+      tradeoff: "It's tuned to catch everything, even at the cost of false positives — in testing it caught 100% of planted identifying details but over-redacted about a quarter of the time. Documented as prototype-grade, not a certified privacy tool."
+    }
+  };
+
+  var STEPS = [
+    { node: "frontdesk", edge: null, text: "A nurse opens the control panel and starts a case for a patient who's ready for discharge, a bed change, and transport." },
+    { node: "coordinator", edge: "e-frontdesk-coordinator", text: "The shift coordinator takes the case and lines it up for the first specialist: discharge readiness." },
+    { node: "discharge", edge: "e-coordinator-discharge", text: "The discharge specialist checks sign-offs — attending, pharmacy, case management — are all complete." },
+    { node: "mcp", edge: "e-discharge-mcp", text: "To read the chart, discharge check goes through the pharmacy counter — the one door every data request must pass through." },
+    { node: "fhir", edge: "e-mcp-fhir", text: "Whatever comes back is checked against the standard medical-record format before any specialist sees it." },
+    { node: "records", edge: "e-mcp-records", text: "The pharmacy counter also checks the paper trail — bed inventory and the transport log, kept as real files." },
+    { node: "risk", edge: "e-discharge-risk", text: "Discharge is clear. Now the risk specialist checks whether the bed change and transport itself is safe." },
+    { node: "human", edge: "e-risk-human", text: "This patient needs a specialised bed and no supervisor has signed off — flagged high risk. The workflow freezes." },
+    { node: "phi", edge: "e-human-phi", text: "A supervisor approves and types a note. The note is redacted before storage — this exact spot once leaked identifying details, until a same-day fix closed it." },
+    { node: "commit", edge: "e-phi-commit", text: "Cleared and clean. The bed record updates, then transport is dispatched — in that order, never before clearance." },
+    { node: "audit", edge: "e-commit-audit", text: "Every step just taken — the risk flag, the approval, the redaction — is written to the permanent audit trail." }
+  ];
+
+  var nodeEls = {};
+  var edgeEls = {};
+  document.querySelectorAll('.node').forEach(function (el) { nodeEls[el.getAttribute('data-key')] = el; });
+  document.querySelectorAll('.edge').forEach(function (el) { edgeEls[el.id] = el; });
+
+  var panel = document.getElementById('panel');
+  var selectedKey = null;
+  var openChip = null;
+
+  function renderPanel(key) {
+    var d = NODES[key];
+    if (!d) return;
+    var html = '';
+    html += '<div class="panel-sub">' + d.tech + '</div>';
+    html += '<div class="panel-name">' + d.plain + '</div>';
+    html += '<div class="panel-role">' + d.role + '</div>';
+    html += '<div class="panel-what prose">' + d.what + '</div>';
+    html += '<div class="chip-row">';
+    html += '<button class="chip" data-chip="why">why it\'s there</button>';
+    html += '<button class="chip" data-chip="tradeoff">the tradeoff</button>';
+    html += '</div>';
+    html += '<div class="chip-panel prose" id="chipWhy" hidden>' + d.why + '</div>';
+    html += '<div class="chip-panel prose" id="chipTradeoff" hidden>' + d.tradeoff + '</div>';
+    panel.innerHTML = html;
+    openChip = null;
+
+    panel.querySelectorAll('.chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var which = btn.getAttribute('data-chip');
+        var whyPanel = document.getElementById('chipWhy');
+        var tPanel = document.getElementById('chipTradeoff');
+        var whyChip = panel.querySelector('[data-chip="why"]');
+        var tChip = panel.querySelector('[data-chip="tradeoff"]');
+        if (openChip === which) {
+          openChip = null;
+          whyPanel.hidden = true; tPanel.hidden = true;
+          whyChip.classList.remove('open'); tChip.classList.remove('open');
+          return;
+        }
+        openChip = which;
+        whyPanel.hidden = (which !== 'why');
+        tPanel.hidden = (which !== 'tradeoff');
+        whyChip.classList.toggle('open', which === 'why');
+        tChip.classList.toggle('open', which === 'tradeoff');
+      });
+    });
+  }
+
+  function selectNode(key) {
+    selectedKey = key;
+    renderPanel(key);
+  }
+
+  Object.keys(nodeEls).forEach(function (key) {
+    var el = nodeEls[key];
+    el.addEventListener('click', function () { selectNode(key); });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectNode(key); }
+    });
+    el.addEventListener('mouseenter', function (e) { showTooltip(e, key); });
+    el.addEventListener('mousemove', function (e) { moveTooltip(e); });
+    el.addEventListener('mouseleave', hideTooltip);
+  });
+
+  var tooltip = document.getElementById('tooltip');
+  var ttName = document.getElementById('ttName');
+  var ttDesc = document.getElementById('ttDesc');
+
+  function showTooltip(e, key) {
+    var d = NODES[key];
+    ttName.textContent = d.plain;
+    ttDesc.textContent = d.tip;
+    tooltip.classList.add('show');
+    moveTooltip(e);
+  }
+  function moveTooltip(e) {
+    var pad = 16;
+    var w = tooltip.offsetWidth || 240;
+    var h = tooltip.offsetHeight || 60;
+    var x = e.clientX + pad;
+    var y = e.clientY + pad;
+    if (x + w > window.innerWidth - 10) x = e.clientX - w - pad;
+    if (y + h > window.innerHeight - 10) y = e.clientY - h - pad;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+  function hideTooltip() { tooltip.classList.remove('show'); }
+
+  /* flow playback */
+  var stepIdx = -1;
+  var playing = false;
+  var playTimer = null;
+  var stepCountEl = document.getElementById('stepCount');
+  var narrationEl = document.getElementById('narrationText');
+
+  function clearHighlights() {
+    Object.keys(nodeEls).forEach(function (k) { nodeEls[k].classList.remove('active', 'dimmed'); });
+    Object.keys(edgeEls).forEach(function (k) { edgeEls[k].classList.remove('active'); });
+  }
+
+  function applyStep(i) {
+    if (i < 0 || i >= STEPS.length) return;
+    var s = STEPS[i];
+    clearHighlights();
+    Object.keys(nodeEls).forEach(function (k) {
+      if (k !== s.node) nodeEls[k].classList.add('dimmed');
+    });
+    nodeEls[s.node].classList.add('active');
+    if (s.edge && edgeEls[s.edge]) edgeEls[s.edge].classList.add('active');
+    narrationEl.textContent = s.text;
+    stepCountEl.textContent = 'step ' + (i + 1) + ' / ' + STEPS.length;
+    selectNode(s.node);
+  }
+
+  function resetFlow() {
+    stepIdx = -1;
+    stopPlay();
+    clearHighlights();
+    narrationEl.textContent = 'Press play to walk a real patient case through the system, step by step.';
+    stepCountEl.textContent = 'step 0 / ' + STEPS.length;
+  }
+
+  function nextStep() {
+    if (stepIdx >= STEPS.length - 1) { stopPlay(); return; }
+    stepIdx++;
+    applyStep(stepIdx);
+  }
+  function prevStep() {
+    if (stepIdx <= 0) return;
+    stepIdx--;
+    applyStep(stepIdx);
+  }
+  function startPlay() {
+    if (stepIdx >= STEPS.length - 1) stepIdx = -1;
+    playing = true;
+    document.getElementById('playBtn').textContent = '⏸ pause';
+    nextStep();
+    playTimer = setInterval(function () {
+      if (stepIdx >= STEPS.length - 1) { stopPlay(); return; }
+      nextStep();
+    }, 5000);
+  }
+  function stopPlay() {
+    playing = false;
+    document.getElementById('playBtn').textContent = '▶ play';
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  }
+
+  document.getElementById('playBtn').addEventListener('click', function () {
+    if (playing) stopPlay(); else startPlay();
+  });
+  document.getElementById('nextBtn').addEventListener('click', function () { stopPlay(); nextStep(); });
+  document.getElementById('prevBtn').addEventListener('click', function () { stopPlay(); prevStep(); });
+  document.getElementById('resetBtn').addEventListener('click', resetFlow);
+
+  document.getElementById('svgWrap').addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight') { e.preventDefault(); stopPlay(); nextStep(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); stopPlay(); prevStep(); }
+  });
+
+  resetFlow();
+</script>
+
+</body>
+</html>

@@ -218,7 +218,7 @@
       background: rgba(34,211,238,0.07); color: var(--cyan);
       border: 1px solid rgba(34,211,238,0.18);
     }
-    .proj-link-row { display: flex; justify-content: flex-end; margin-top: 0.9rem; }
+    .proj-link-row { display: flex; justify-content: flex-end; gap: 1.1rem; margin-top: 0.9rem; }
     .proj-link {
       color: var(--muted); text-decoration: none; font-size: 0.8rem;
       transition: color 0.2s;
@@ -371,11 +371,11 @@
         </div>
         <div class="term-body">
           <p class="proj-desc">
-            Multi-agent LangGraph system simulating hospital bed tracking, discharge planning,
-            and transport dispatch behind a Model Context Protocol (MCP) tool layer (FastMCP).
-            Static human-in-the-loop approval gates elevated-risk actions; every FHIR bundle is
-            validated against R4B models, and free text passes through a Presidio-backed PHI
-            guardrail before it ever reaches a log.
+            LangGraph pipeline that hands a hospital case through a fixed sequence of specialist
+            stages — bed tracking, discharge planning, and transport dispatch — behind a Model
+            Context Protocol (MCP) tool layer (FastMCP). Static human-in-the-loop approval gates
+            elevated-risk actions; every FHIR bundle is validated against R4B models, and free
+            text passes through a Presidio-backed PHI guardrail before it ever reaches a log.
           </p>
           <div class="proj-note">
             <span class="lbl"># note:</span> every mutating node runs inside an error boundary
@@ -393,6 +393,7 @@
             <span class="tag">Streamlit</span>
           </div>
           <div class="proj-link-row">
+            <a href="projects/hospital-ai-orchestrator.html" class="proj-link">[walkthrough →]</a>
             <a href="https://github.com/Kanim21/hospital-ai-orchestrator" target="_blank" rel="noopener" class="proj-link">github ↗</a>
           </div>
         </div>
@@ -426,6 +427,7 @@
             <span class="tag">kind</span>
           </div>
           <div class="proj-link-row">
+            <a href="projects/omni-obs-platform.html" class="proj-link">[walkthrough →]</a>
             <a href="https://github.com/Kanim21/omni-obs-platform" target="_blank" rel="noopener" class="proj-link">github ↗</a>
           </div>
         </div>
@@ -459,6 +461,7 @@
             <span class="tag">Go</span>
           </div>
           <div class="proj-link-row">
+            <a href="projects/production-platform.html" class="proj-link">[walkthrough →]</a>
             <a href="https://github.com/Kanim21/production-platform" target="_blank" rel="noopener" class="proj-link">github ↗</a>
           </div>
         </div>
@@ -492,6 +495,7 @@
             <span class="tag">pyATS</span>
           </div>
           <div class="proj-link-row">
+            <a href="projects/enterprise-network-platform.html" class="proj-link">[walkthrough →]</a>
             <a href="https://github.com/Kanim21/enterprise-network-platform" target="_blank" rel="noopener" class="proj-link">github ↗</a>
           </div>
         </div>
@@ -523,6 +527,7 @@
             <span class="tag">Maven</span>
           </div>
           <div class="proj-link-row">
+            <a href="projects/pipeline-surgeon-labs.html" class="proj-link">[walkthrough →]</a>
             <a href="https://github.com/Kanim21/pipeline-surgeon-labs" target="_blank" rel="noopener" class="proj-link">github ↗</a>
           </div>
         </div>

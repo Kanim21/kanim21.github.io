@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>production-platform — walkthrough</title>
+<meta name="description" content="An interactive walkthrough of production-platform: infrastructure built to survive a 10x Black Friday traffic spike, not just an average Tuesday." />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #0a0e0f;
+    --bg2:         #0c1112;
+    --win-bg:      #0f1517;
+    --win-header:  #131a1c;
+    --border:      #1d2b26;
+    --border-brt:  #2a4038;
+    --fg:          #d6e0dd;
+    --muted:       #6b7d76;
+    --dim:         #4a5c56;
+    --prompt:      #4ade80;
+    --green:       #3fb950;
+    --amber:       #f0883e;
+    --cyan:        #22d3ee;
+    --blue:        #58a6ff;
+    --purple:      #c9a0ff;
+    --red:         #ff5f56;
+    --yellow:      #ffbd2e;
+    --radius:      8px;
+    --mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', 'Fira Code',
+            Menlo, Consolas, 'Liberation Mono', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.7;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse 70% 50% at 50% -10%, rgba(74,222,128,0.05) 0%, transparent 60%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+  }
+
+  a { color: inherit; }
+
+  .prose {
+    font-family: var(--sans);
+    line-height: 1.7;
+    max-width: 62ch;
+    color: var(--fg);
+  }
+  .prose.dim { color: var(--muted); }
+
+  /* ── TOPBAR ──────────────────────────────────────────────────────── */
+  .topbar {
+    position: fixed; top: 0; width: 100%; z-index: 100;
+    background: rgba(10,14,15,0.9);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    max-width: 1080px; margin: 0 auto;
+    padding: 0 1.5rem;
+    height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem;
+  }
+  .crumb { font-size: 0.8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .crumb a { text-decoration: none; }
+  .crumb a:hover { color: var(--prompt); }
+  .topbar-links { display: flex; gap: 1.5rem; list-style: none; flex-shrink: 0; }
+  .topbar-links a {
+    color: var(--muted); text-decoration: none; font-size: 0.8rem;
+    transition: color 0.2s;
+  }
+  .topbar-links a:hover { color: var(--prompt); }
+  .back-link {
+    color: var(--prompt); text-decoration: none; font-size: 0.8rem; flex-shrink: 0;
+  }
+  @media (max-width: 720px) { .topbar-links { display: none; } }
+
+  /* ── SECTION SHARED ──────────────────────────────────────────────── */
+  section { padding: 4.25rem 1.5rem; }
+  .container { max-width: 1080px; margin: 0 auto; }
+  .section-comment { font-size: 0.82rem; color: var(--dim); margin-bottom: 0.6rem; }
+  .section-comment::before { content: '# '; }
+  .section-title {
+    font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+    font-weight: 700; letter-spacing: -0.5px;
+    margin-bottom: 1.25rem;
+    display: flex; align-items: baseline; gap: 0.6rem;
+  }
+  .section-title .p { color: var(--prompt); font-size: 0.85em; }
+
+  /* ── HERO ────────────────────────────────────────────────────────── */
+  .hero-dive { padding-top: 6.5rem; }
+  .tagline {
+    font-size: clamp(1.4rem, 3.2vw, 2rem);
+    font-weight: 700; letter-spacing: -0.5px;
+    max-width: 34ch;
+    margin: 0.75rem 0 1.25rem;
+    line-height: 1.35;
+  }
+  .lede { margin-bottom: 1.5rem; font-size: 1rem; }
+  .callout {
+    font-size: 0.88rem; color: var(--fg);
+    font-family: var(--sans);
+    background: rgba(240,136,62,0.06);
+    border-left: 2px solid var(--amber);
+    padding: 0.85rem 1.1rem;
+    margin-bottom: 1.5rem;
+    max-width: 62ch;
+    line-height: 1.65;
+  }
+  .callout-lbl { color: var(--amber); font-family: var(--mono); font-size: 0.82rem; display: block; margin-bottom: 0.3rem; }
+  .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .tag {
+    font-size: 0.72rem; font-family: var(--mono);
+    padding: 0.15rem 0.5rem; border-radius: 4px;
+    background: rgba(34,211,238,0.07); color: var(--cyan);
+    border: 1px solid rgba(34,211,238,0.18);
+  }
+
+  /* ── ANALOGY ─────────────────────────────────────────────────────── */
+  .analogy {
+    border-left: 3px solid var(--border-brt);
+    padding-left: 1.5rem;
+  }
+  .analogy p { margin-bottom: 1.1rem; }
+  .analogy p:last-child { margin-bottom: 0; }
+
+  /* ── TERM WINDOW (reused chrome) ─────────────────────────────────── */
+  .term-window {
+    background: var(--win-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+  }
+  .term-titlebar {
+    background: var(--win-header);
+    border-bottom: 1px solid var(--border);
+    padding: 0.65rem 1rem;
+    display: flex; align-items: center; gap: 0.9rem;
+  }
+  .term-dots { display: flex; gap: 0.4rem; flex-shrink: 0; }
+  .term-dot { width: 11px; height: 11px; border-radius: 50%; }
+  .term-dot.red { background: var(--red); }
+  .term-dot.yellow { background: var(--yellow); }
+  .term-dot.green { background: var(--green); }
+  .term-title { font-size: 0.76rem; color: var(--muted); flex: 1; text-align: center; margin-right: 3.4rem; }
+  .term-body { padding: 1.5rem; }
+
+  /* ── DIAGRAM ─────────────────────────────────────────────────────── */
+  .dive-grid { display: grid; grid-template-columns: 1fr 320px; gap: 1.25rem; align-items: start; }
+  .svg-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; }
+  .svg-wrap:focus { outline: 1px solid var(--border-brt); }
+  svg#diagram { width: 100%; height: auto; display: block; }
+
+  .node rect { fill: var(--win-header); stroke: var(--border-brt); stroke-width: 1.25; transition: all 0.25s; }
+  .node .plain { fill: var(--fg); font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+  .node .sub { fill: var(--muted); font-family: var(--mono); font-size: 9.5px; }
+  .node { cursor: pointer; }
+  .node:hover rect { stroke: var(--prompt); }
+  .node.active rect { fill: rgba(240,136,62,0.14); stroke: var(--amber); stroke-width: 2; filter: url(#nodeGlow); }
+  .node.active .plain { fill: var(--amber); }
+  .node.dimmed { opacity: 0.32; }
+  .node:focus { outline: none; }
+  .node:focus rect { stroke: var(--cyan); stroke-width: 2; }
+
+  .edge { fill: none; stroke: var(--border-brt); stroke-width: 1.4; marker-end: url(#arrow); }
+  .edge.active { stroke: var(--amber); stroke-width: 2; stroke-dasharray: 6 4; animation: dashmove 0.6s linear infinite; marker-end: url(#arrowActive); }
+  @keyframes dashmove { to { stroke-dashoffset: -20; } }
+
+  /* tooltip */
+  .tooltip {
+    position: fixed; z-index: 200; pointer-events: none;
+    background: var(--win-header); border: 1px solid var(--border-brt);
+    border-radius: 6px; padding: 0.55rem 0.75rem; max-width: 240px;
+    font-family: var(--mono); font-size: 0.76rem; color: var(--fg);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    opacity: 0; transition: opacity 0.12s;
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip .tt-name { color: var(--prompt); font-weight: 600; margin-bottom: 0.2rem; }
+  .tooltip .tt-desc { color: var(--muted); font-family: var(--sans); line-height: 1.4; }
+
+  /* detail panel */
+  .panel {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 1.1rem; min-height: 300px;
+  }
+  .panel-name { font-size: 1rem; font-weight: 700; color: var(--fg); }
+  .panel-sub { font-size: 0.75rem; color: var(--dim); margin-bottom: 0.15rem; }
+  .panel-role { font-size: 0.78rem; color: var(--cyan); margin: 0.3rem 0 0.9rem; }
+  .panel-what { font-size: 0.87rem; margin-bottom: 1rem; }
+  .panel-placeholder { color: var(--muted); font-family: var(--sans); font-size: 0.88rem; line-height: 1.7; }
+  .chip-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--mono); font-size: 0.74rem; color: var(--fg);
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-brt);
+    border-radius: 4px; padding: 0.35rem 0.65rem; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .chip:hover { border-color: var(--prompt); color: var(--prompt); }
+  .chip.open { background: rgba(74,222,128,0.1); border-color: var(--prompt); color: var(--prompt); }
+  .chip-panel { font-size: 0.85rem; color: var(--fg); padding-top: 0.25rem; }
+  .chip-panel[hidden] { display: none; }
+
+  /* narration bar */
+  .narration-bar {
+    margin-top: 1rem; background: var(--win-header);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.9rem 1.1rem;
+  }
+  .narration-controls { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
+  .nbtn {
+    font-family: var(--mono); font-size: 0.76rem; color: var(--fg);
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-brt);
+    border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;
+  }
+  .nbtn:hover { border-color: var(--prompt); color: var(--prompt); }
+  .nbtn.primary { color: var(--prompt); border-color: rgba(74,222,128,0.4); }
+  .step-count { font-size: 0.75rem; color: var(--dim); margin-left: auto; }
+  .narration-text { font-family: var(--sans); font-size: 0.92rem; color: var(--fg); line-height: 1.6; min-height: 2.6em; }
+
+  @media (max-width: 900px) {
+    .dive-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── RISKS TABLE ─────────────────────────────────────────────────── */
+  .risk-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  .risk-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border-brt); }
+  .risk-table td { padding: 0.75rem 0.9rem; border-bottom: 1px solid var(--border); font-family: var(--sans); color: var(--fg); vertical-align: top; }
+  .risk-table td:first-child { color: var(--fg); font-weight: 500; }
+  @media (max-width: 640px) {
+    .risk-table thead { display: none; }
+    .risk-table, .risk-table tbody, .risk-table tr, .risk-table td { display: block; width: 100%; }
+    .risk-table tr { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.75rem; padding: 0.5rem 0.25rem; }
+    .risk-table td { border-bottom: none; padding: 0.4rem 0.75rem; }
+    .risk-table td::before { content: attr(data-label); display: block; font-family: var(--mono); font-size: 0.7rem; color: var(--dim); margin-bottom: 0.2rem; }
+  }
+  .not-box {
+    margin-top: 1.5rem; font-size: 0.86rem; font-family: var(--sans);
+    color: var(--fg); background: rgba(240,136,62,0.05);
+    border-left: 2px solid var(--amber); padding: 0.9rem 1.1rem; line-height: 1.65; max-width: 62ch;
+  }
+  .not-box b { color: var(--amber); font-family: var(--mono); }
+
+  /* ── GLOSSARY ────────────────────────────────────────────────────── */
+  details.glossary summary {
+    cursor: pointer; font-size: 0.9rem; color: var(--prompt);
+    padding: 0.75rem 0; list-style: none; user-select: none;
+  }
+  details.glossary summary::-webkit-details-marker { display: none; }
+  details.glossary summary::before { content: '▸ '; }
+  details.glossary[open] summary::before { content: '▾ '; }
+  .glossary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem; margin-top: 0.75rem;
+  }
+  .g-term { font-size: 0.85rem; color: var(--fg); font-weight: 600; margin-bottom: 0.25rem; }
+  .g-def { font-family: var(--sans); font-size: 0.83rem; color: var(--muted); line-height: 1.55; }
+
+  /* ── FOOTER ──────────────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1.5rem; text-align: center;
+    font-size: 0.78rem; color: var(--dim);
+    display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;
+  }
+  footer a { color: var(--dim); text-decoration: none; }
+  footer a:hover { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="crumb"><a href="../index.html">~</a> / <a href="../index.html#projects">projects</a> / production-platform</div>
+    <nav class="topbar-links">
+      <a href="#diagram">diagram</a>
+      <a href="#risks">what could go wrong</a>
+      <a href="#glossary">glossary</a>
+    </nav>
+    <a href="../index.html" class="back-link">← back</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero-dive">
+  <div class="container">
+    <p class="section-comment">case study · production-platform</p>
+    <h1 class="tagline">Infrastructure built for Black Friday traffic, not an average Tuesday.</h1>
+    <p class="lede prose">An online store's traffic can jump ten-fold in an hour when a sale goes live, and a slow checkout page directly costs revenue. This project designs the servers, network, and database underneath a store to survive that spike, fail predictably when something breaks, and rebuild itself from version-controlled blueprints rather than manual clicks.</p>
+    <div class="callout">
+      <span class="callout-lbl"># reference architecture</span>
+      This is a portfolio piece, not a live account — <b style="color:var(--amber)">terraform apply</b> is wired but gated behind a manual trigger, because running the real thing 24/7 costs roughly $700–900/month for a project with no live customers. Everything else — the lint, the security scan, the design — is real.
+    </div>
+    <div class="tags">
+      <span class="tag">Terraform</span>
+      <span class="tag">AWS EKS</span>
+      <span class="tag">Aurora PostgreSQL</span>
+      <span class="tag">Helm</span>
+      <span class="tag">OIDC / IRSA</span>
+      <span class="tag">Checkov</span>
+      <span class="tag">Go</span>
+    </div>
+  </div>
+</section>
+
+<!-- IDEA WITHOUT JARGON -->
+<section id="idea">
+  <div class="container">
+    <p class="section-comment">the idea, without the jargon</p>
+    <h2 class="section-title"><span class="p">$</span> how to think about this</h2>
+    <div class="analogy prose">
+      <p>Imagine designing a physical shop knowing that one day a year, ten times the usual number of customers will show up at once. You wouldn't build for a normal Tuesday and hope — you'd plan wider doors, more till staff on call, and a stockroom that can restock itself.</p>
+      <p>This project is that shop, built in code. A doorman sends each customer to a free till. The till staff are backed by a stockroom that keeps a single, trustworthy ledger of every order. When the crowd doubles, more till staff clock in automatically, no manager required.</p>
+      <p>And the whole shop — doors, tills, stockroom layout — exists first as a blueprint, not bricks. That blueprint lives in version control, gets checked by an inspector before anything is built from it, and can be rebuilt identically if it ever needs to be.</p>
+    </div>
+  </div>
+</section>
+
+<!-- DIAGRAM -->
+<section id="diagram" style="background:var(--bg2);">
+  <div class="container">
+    <p class="section-comment">how the pieces fit together</p>
+    <h2 class="section-title"><span class="p">$</span> walk a customer request through the system</h2>
+
+    <div class="term-window">
+      <div class="term-titlebar">
+        <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
+        <div class="term-title">architecture.svg</div>
+      </div>
+      <div class="term-body">
+        <div class="dive-grid">
+
+          <div class="svg-wrap" id="svgWrap" tabindex="0" aria-label="Architecture diagram, use arrow keys to step through the flow">
+            <svg id="diagram" viewBox="0 0 900 640" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#2a4038"></path>
+                </marker>
+                <marker id="arrowActive" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#f0883e"></path>
+                </marker>
+                <filter id="nodeGlow" x="-40%" y="-40%" width="180%" height="180%">
+                  <feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur>
+                  <feMerge>
+                    <feMergeNode in="blur"></feMergeNode>
+                    <feMergeNode in="SourceGraphic"></feMergeNode>
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <!-- edges -->
+              <path class="edge" id="e-shopfront-doorman" d="M150,80 L150,120"></path>
+              <path class="edge" id="e-doorman-floorplan" d="M150,184 L150,224"></path>
+              <path class="edge" id="e-floorplan-storefloor" d="M150,288 L150,328"></path>
+              <path class="edge" id="e-storefloor-catalog" d="M260,360 L560,360"></path>
+              <path class="edge" id="e-storefloor-checkout" d="M150,392 L150,432"></path>
+              <path class="edge" id="e-checkout-passes" d="M260,464 L560,464"></path>
+              <path class="edge" id="e-passes-vault" d="M670,496 L670,536"></path>
+              <path class="edge" id="e-vault-ledger" d="M560,568 L260,568"></path>
+              <path class="edge" id="e-ledger-vitals" d="M260,568 C 860,568 860,48 780,48"></path>
+              <path class="edge" id="e-vitals-blueprints" d="M670,80 L670,120"></path>
+              <path class="edge" id="e-blueprints-inspector" d="M670,184 L670,224"></path>
+
+              <!-- nodes: main pipeline -->
+              <g class="node" tabindex="0" role="button" data-key="shopfront" aria-label="The shop front — CloudFront CDN">
+                <rect x="40" y="16" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="42" text-anchor="middle">The shop front</text>
+                <text class="sub" x="150" y="60" text-anchor="middle">CloudFront CDN</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="doorman" aria-label="The doorman — Application Load Balancer">
+                <rect x="40" y="120" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="146" text-anchor="middle">The doorman</text>
+                <text class="sub" x="150" y="164" text-anchor="middle">Application Load Balancer</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="floorplan" aria-label="The floor plan — VPC, 3-tier subnets, 3 AZs">
+                <rect x="40" y="224" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="250" text-anchor="middle">The floor plan</text>
+                <text class="sub" x="150" y="268" text-anchor="middle">VPC — 3-tier subnets, 3 AZs</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="storefloor" aria-label="The store floor — EKS managed node groups">
+                <rect x="40" y="328" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="354" text-anchor="middle">The store floor</text>
+                <text class="sub" x="150" y="372" text-anchor="middle">EKS — managed node groups</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="checkout" aria-label="The checkout staff — Go API pods">
+                <rect x="40" y="432" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="458" text-anchor="middle">The checkout staff</text>
+                <text class="sub" x="150" y="476" text-anchor="middle">Go API pods</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="ledger" aria-label="The ledger — Aurora PostgreSQL Multi-AZ">
+                <rect x="40" y="536" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="562" text-anchor="middle">The ledger</text>
+                <text class="sub" x="150" y="580" text-anchor="middle">Aurora PostgreSQL — Multi-AZ</text>
+              </g>
+
+              <!-- nodes: support column -->
+              <g class="node" tabindex="0" role="button" data-key="vitals" aria-label="The vital-signs monitor — kube-prometheus-stack">
+                <rect x="560" y="16" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="42" text-anchor="middle">The vital-signs monitor</text>
+                <text class="sub" x="670" y="60" text-anchor="middle">kube-prometheus-stack</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="blueprints" aria-label="The blueprints — Terraform modules, dev/staging/prod">
+                <rect x="560" y="120" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="146" text-anchor="middle">The blueprints</text>
+                <text class="sub" x="670" y="164" text-anchor="middle">Terraform — dev / staging / prod</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="inspector" aria-label="The inspector — tflint and Checkov in CI">
+                <rect x="560" y="224" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="250" text-anchor="middle">The inspector</text>
+                <text class="sub" x="670" y="268" text-anchor="middle">tflint + Checkov, in CI</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="catalog" aria-label="The catalog display — React static pods">
+                <rect x="560" y="328" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="354" text-anchor="middle">The catalog display</text>
+                <text class="sub" x="670" y="372" text-anchor="middle">React static pods, via nginx</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="passes" aria-label="Temporary passes — OIDC and IRSA">
+                <rect x="560" y="432" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="458" text-anchor="middle">Temporary passes</text>
+                <text class="sub" x="670" y="476" text-anchor="middle">OIDC (CI) + IRSA (pods)</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="vault" aria-label="The vault — database subnets, no internet route">
+                <rect x="560" y="536" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="562" text-anchor="middle">The vault</text>
+                <text class="sub" x="670" y="580" text-anchor="middle">DB subnets — no internet route</text>
+              </g>
+            </svg>
+          </div>
+
+          <div class="panel" id="panel">
+            <div class="panel-placeholder">Hover a box for a quick description, click one for the full detail, or press play below to walk a customer request through the system.</div>
+          </div>
+
+        </div>
+
+        <div class="narration-bar">
+          <div class="narration-controls">
+            <button class="nbtn" id="resetBtn" title="Reset">⟲ reset</button>
+            <button class="nbtn" id="prevBtn" title="Previous step">⟨ prev</button>
+            <button class="nbtn primary" id="playBtn" title="Play / pause">▶ play</button>
+            <button class="nbtn" id="nextBtn" title="Next step">next ⟩</button>
+            <span class="step-count" id="stepCount">step 0 / 12</span>
+          </div>
+          <p class="narration-text" id="narrationText">Press play to walk a real customer request through the system, step by step.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RISKS -->
+<section id="risks">
+  <div class="container">
+    <p class="section-comment">what could go wrong</p>
+    <h2 class="section-title"><span class="p">$</span> failure modes, and the recovery time</h2>
+
+    <table class="risk-table">
+      <thead>
+        <tr><th>If this happens</th><th>What the system does</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-label="If this happens">An EKS node stops responding</td>
+          <td data-label="What the system does">Cluster Autoscaler replaces it and pods reschedule automatically — typically back to normal within 5 minutes.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">An entire availability zone goes down</td>
+          <td data-label="What the system does">The load balancer drains it and Kubernetes reschedules everything to the remaining zones — under 10 minutes.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">The database's primary instance fails</td>
+          <td data-label="What the system does">Aurora auto-promotes a standby and DNS flips to it — about 30 seconds for the database, under 5 minutes end-to-end.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">A bad deploy ships</td>
+          <td data-label="What the system does">A rollout-stalled alert fires; an engineer rolls it back with one command — typically resolved within 5 minutes.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">Secrets are suspected leaked</td>
+          <td data-label="What the system does">GuardDuty flags it; secrets rotate in Secrets Manager and pods pick up new credentials on restart — under 30 minutes.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="not-box">
+      <b># what this project is not:</b> a live, deployed system — there's no AWS account behind it, since running it 24/7 costs roughly $700–900/month for a project with no real customers. Redis caching is designed but not yet wired up, and database secret rotation is a manual runbook, not yet automatic.
+    </div>
+  </div>
+</section>
+
+<!-- GLOSSARY -->
+<section id="glossary" style="background:var(--bg2); padding-top:2rem; padding-bottom:3rem;">
+  <div class="container">
+    <details class="glossary">
+      <summary># glossary — 10 terms, click to expand</summary>
+      <div class="glossary-grid">
+        <div><div class="g-term">CDN</div><div class="g-def">A network of servers spread around the world that cache and serve content close to the visitor, instead of one distant server handling everyone.</div></div>
+        <div><div class="g-term">VPC</div><div class="g-def">A private, isolated network inside a cloud provider — like renting your own building instead of sharing office space.</div></div>
+        <div><div class="g-term">Kubernetes / EKS</div><div class="g-def">A system that runs an application as many small containers across a fleet of servers, restarting or replacing them automatically.</div></div>
+        <div><div class="g-term">Multi-AZ</div><div class="g-def">Running duplicate copies of something in physically separate data centres, so one location failing doesn't take the whole system down.</div></div>
+        <div><div class="g-term">OIDC</div><div class="g-def">A way for one system (like a CI pipeline) to prove its identity and get a short-lived credential, without a stored password.</div></div>
+        <div><div class="g-term">IRSA</div><div class="g-def">The same idea as OIDC, but for an individual running pod requesting AWS permissions instead of a whole CI job.</div></div>
+        <div><div class="g-term">IaC (Infrastructure as Code)</div><div class="g-def">Describing servers and networks in text files instead of clicking through a console, so the setup can be reviewed and rebuilt exactly.</div></div>
+        <div><div class="g-term">RTO</div><div class="g-def">Recovery Time Objective — the target maximum time a system is allowed to be broken before it's considered recovered.</div></div>
+        <div><div class="g-term">Autoscaling</div><div class="g-def">Automatically adding or removing running copies of a service based on how much traffic or load it's currently under.</div></div>
+        <div><div class="g-term">Static analysis</div><div class="g-def">Checking code or configuration for known mistakes by reading it, without actually running it.</div></div>
+      </div>
+    </details>
+  </div>
+</section>
+
+<footer>
+  <a href="https://github.com/Kanim21/production-platform" target="_blank" rel="noopener">github ↗</a>
+  <a href="../index.html">← back to all projects</a>
+</footer>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-name" id="ttName"></div>
+  <div class="tt-desc" id="ttDesc"></div>
+</div>
+
+<script>
+  var NODES = {
+    shopfront: {
+      plain: "The shop front", tech: "CloudFront CDN", role: "First stop for every visitor",
+      tip: "Caches static content at the edge, close to the shopper.",
+      what: "Caches product images and static pages at edge locations close to the shopper, and applies web-application-firewall rules before traffic reaches the data centre.",
+      why: "Most traffic is just people browsing the catalog — serving that from the edge is faster for the shopper and takes load off everything behind it.",
+      tradeoff: "Cached content can go briefly stale after a catalog update. The project accepts a short cache window — 60 seconds for API responses in the scaling plan — rather than paying for instant invalidation everywhere."
+    },
+    doorman: {
+      plain: "The doorman", tech: "Application Load Balancer", role: "The one public door",
+      tip: "The one public entry point; routes to a healthy pod.",
+      what: "Terminates HTTPS and decides which healthy backend pod gets each request — the only thing in the system with a public IP address.",
+      why: "Nothing else needs to be reachable from the internet. Keeping one well-guarded entrance is far easier to secure than many.",
+      tradeoff: "Every request now depends on the load balancer's own health — it's a fully managed AWS service specifically so that single point isn't something the team has to operate itself."
+    },
+    floorplan: {
+      plain: "The floor plan", tech: "VPC — 3-tier subnets, 3 AZs", role: "Where everything is allowed to sit",
+      tip: "Three isolated zones so one failure doesn't take down the rest.",
+      what: "Splits the network into public, private, and database zones spread across three physical data centres, so one zone's failure doesn't take down the others.",
+      why: "Blast-radius isolation: a compromised web pod still can't reach the database subnet directly, and losing one data centre doesn't take the store down.",
+      tradeoff: "Three data centres means three NAT Gateways instead of one — about $100/month extra — accepted specifically so checkout never has to hop across zones during a partial outage."
+    },
+    storefloor: {
+      plain: "The store floor", tech: "EKS 1.30 — managed node groups", role: "Where the work actually happens",
+      tip: "Runs the app as containers, replacing failures automatically.",
+      what: "Runs the application as containers across a fleet of servers, automatically replacing a failed one and adding more when traffic spikes.",
+      why: "Kubernetes skills transfer between companies, unlike a single cloud vendor's own container service, and it bin-packs workloads more efficiently.",
+      tradeoff: "More operationally complex than a simpler managed container service. Chosen anyway for portability and ecosystem depth, not because it's the simplest option available."
+    },
+    checkout: {
+      plain: "The checkout staff", tech: "Go API pods", role: "Handles the actual request",
+      tip: "Handles cart, order, and payment requests directly.",
+      what: "A Go service that looks up products, updates a cart, or places an order — the piece a shopper's action actually reaches.",
+      why: "Checkout is the one interaction where speed directly affects revenue, so it's built to answer in under 200 milliseconds.",
+      tradeoff: "It runs only on committed, on-demand servers, never the cheaper spot capacity used elsewhere — paying more so a spot interruption can never drop a checkout mid-request."
+    },
+    ledger: {
+      plain: "The ledger", tech: "Aurora PostgreSQL 15, Multi-AZ", role: "The single source of truth",
+      tip: "The single source of truth for orders and accounts.",
+      what: "Stores every order and account. If the primary copy fails, a standby takes over in about 30 seconds without losing data.",
+      why: "For checkout, the gap between a 30-second Aurora failover and a 60-120 second standard failover is the difference between a retry and an abandoned cart.",
+      tradeoff: "It's a single writer today — fine at current scale, but heavy write growth beyond roughly 1M users would need sharding or splitting data across services, not just a bigger instance."
+    },
+    vitals: {
+      plain: "The vital-signs monitor", tech: "kube-prometheus-stack", role: "Watches everything, continuously",
+      tip: "Watches every pod and node continuously, in real time.",
+      what: "Collects live metrics from every pod and node — CPU, latency, error rates — and can answer a question in under a second during an incident.",
+      why: "A CloudWatch-style metrics query can take 15+ seconds during an incident; that delay matters when checkout is actively failing.",
+      tradeoff: "Alerts are based on metrics, not logs — application logs still just go to stdout for now. Centralized log search is a deliberately deferred addition, not an oversight."
+    },
+    blueprints: {
+      plain: "The blueprints", tech: "Terraform — dev / staging / prod", role: "How the whole building gets built",
+      tip: "Version-controlled files that can rebuild the whole environment.",
+      what: "Every piece of infrastructure — network, cluster, database — is written down in version-controlled files that can rebuild the entire environment identically.",
+      why: "A blueprint in git can be reviewed, diffed, and rebuilt exactly. A console click-through can't be reproduced or audited the same way.",
+      tradeoff: "Terraform was chosen over AWS's own CDK partly because the team also manages non-AWS resources like GitHub and PagerDuty — at the cost of a declarative language instead of a general-purpose one."
+    },
+    inspector: {
+      plain: "The inspector", tech: "tflint + Checkov, in CI", role: "Checks the blueprints before they're used",
+      tip: "Automatically blocks infrastructure changes with security mistakes.",
+      what: "Automatically scans every proposed infrastructure change for security misconfigurations and policy violations, and blocks the merge if it finds one.",
+      why: "Catching a wide-open security group in a five-minute CI check is far cheaper than catching it after it's live.",
+      tradeoff: "Static analysis can't catch everything — it checks the blueprint's shape, not runtime behaviour, so it's paired with image scanning and threat detection rather than treated as the only safeguard."
+    },
+    catalog: {
+      plain: "The catalog display", tech: "React static pods, via nginx", role: "What the shopper actually sees",
+      tip: "Serves the pre-built storefront pages shoppers actually see.",
+      what: "Serves the pre-built storefront pages — the part of the system a shopper looks at directly, distinct from the API doing the work behind it.",
+      why: "Static pages don't need a server to compute anything per request, so they can be built once and served cheaply, many times over.",
+      tradeoff: "Being static, it can't react instantly to inventory changes — it leans on the API and short cache windows to stay close to accurate instead."
+    },
+    passes: {
+      plain: "Temporary passes", tech: "OIDC (CI) + IRSA (pods)", role: "How anything proves who it is",
+      tip: "Issues short-lived credentials instead of permanent keys.",
+      what: "Both the CI pipeline and the running pods get short-lived, automatically issued credentials scoped to one job or one pod — never a long-lived key sitting in a file.",
+      why: "A permanent access key can leak once and be reused forever. A temporary pass expires whether or not anyone stole it.",
+      tradeoff: "It's more moving parts to configure correctly up front — trust policies, role scoping — than pasting in an access key, which is exactly why it's set up once in Terraform rather than by hand."
+    },
+    vault: {
+      plain: "The vault", tech: "Database subnets — no internet route", role: "Where customer data lives, sealed off",
+      tip: "The subnet with customer data — no internet route at all.",
+      what: "The subnet holding the database has no route to the internet at all — not slow, not filtered, genuinely absent.",
+      why: "Payment metadata and customer accounts are the highest-value target in the system; the simplest defence is making them physically unreachable from outside.",
+      tradeoff: "Anything in here needing an external service — like a credential-rotation function — needs its own careful, audited path in, rather than a quick fix."
+    }
+  };
+
+  var STEPS = [
+    { node: "shopfront", edge: null, text: "A shopper opens the site. CloudFront serves cached product images and static pages from the edge first." },
+    { node: "doorman", edge: "e-shopfront-doorman", text: "Everything dynamic reaches the Application Load Balancer — the one part of the system with a public IP address." },
+    { node: "floorplan", edge: "e-doorman-floorplan", text: "The request enters a private subnet. Nothing behind the load balancer has a direct route to the internet." },
+    { node: "storefloor", edge: "e-floorplan-storefloor", text: "Kubernetes picks a healthy pod to handle the request, from a fleet spread across three data centres." },
+    { node: "catalog", edge: "e-storefloor-catalog", text: "If the shopper is just browsing, a pre-built storefront page is served straight from the catalog display pods." },
+    { node: "checkout", edge: "e-storefloor-checkout", text: "If they're checking out, the Go API handles it directly — answered in under 200 milliseconds." },
+    { node: "passes", edge: "e-checkout-passes", text: "Before touching the database, the pod requests a short-lived credential — a temporary pass, not a stored key." },
+    { node: "vault", edge: "e-passes-vault", text: "That credential lets it into the vault — the one subnet with no internet route at all, where customer data lives." },
+    { node: "ledger", edge: "e-vault-ledger", text: "The order is written to Aurora PostgreSQL. If the primary instance fails, a standby takes over in about 30 seconds." },
+    { node: "vitals", edge: "e-ledger-vitals", text: "The whole path — pod health, latency, database connections — is watched continuously, in under a second per query." },
+    { node: "blueprints", edge: "e-vitals-blueprints", text: "None of this was clicked together by hand. Every piece is defined in version-controlled files that can rebuild it identically." },
+    { node: "inspector", edge: "e-blueprints-inspector", text: "Before any of those files can change production, an inspector checks them for security mistakes and blocks a bad merge." }
+  ];
+
+  var nodeEls = {};
+  var edgeEls = {};
+  document.querySelectorAll('.node').forEach(function (el) { nodeEls[el.getAttribute('data-key')] = el; });
+  document.querySelectorAll('.edge').forEach(function (el) { edgeEls[el.id] = el; });
+
+  var panel = document.getElementById('panel');
+  var selectedKey = null;
+  var openChip = null;
+
+  function renderPanel(key) {
+    var d = NODES[key];
+    if (!d) return;
+    var html = '';
+    html += '<div class="panel-sub">' + d.tech + '</div>';
+    html += '<div class="panel-name">' + d.plain + '</div>';
+    html += '<div class="panel-role">' + d.role + '</div>';
+    html += '<div class="panel-what prose">' + d.what + '</div>';
+    html += '<div class="chip-row">';
+    html += '<button class="chip" data-chip="why">why it\'s there</button>';
+    html += '<button class="chip" data-chip="tradeoff">the tradeoff</button>';
+    html += '</div>';
+    html += '<div class="chip-panel prose" id="chipWhy" hidden>' + d.why + '</div>';
+    html += '<div class="chip-panel prose" id="chipTradeoff" hidden>' + d.tradeoff + '</div>';
+    panel.innerHTML = html;
+    openChip = null;
+
+    panel.querySelectorAll('.chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var which = btn.getAttribute('data-chip');
+        var whyPanel = document.getElementById('chipWhy');
+        var tPanel = document.getElementById('chipTradeoff');
+        var whyChip = panel.querySelector('[data-chip="why"]');
+        var tChip = panel.querySelector('[data-chip="tradeoff"]');
+        if (openChip === which) {
+          openChip = null;
+          whyPanel.hidden = true; tPanel.hidden = true;
+          whyChip.classList.remove('open'); tChip.classList.remove('open');
+          return;
+        }
+        openChip = which;
+        whyPanel.hidden = (which !== 'why');
+        tPanel.hidden = (which !== 'tradeoff');
+        whyChip.classList.toggle('open', which === 'why');
+        tChip.classList.toggle('open', which === 'tradeoff');
+      });
+    });
+  }
+
+  function selectNode(key) {
+    selectedKey = key;
+    renderPanel(key);
+  }
+
+  Object.keys(nodeEls).forEach(function (key) {
+    var el = nodeEls[key];
+    el.addEventListener('click', function () { selectNode(key); });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectNode(key); }
+    });
+    el.addEventListener('mouseenter', function (e) { showTooltip(e, key); });
+    el.addEventListener('mousemove', function (e) { moveTooltip(e); });
+    el.addEventListener('mouseleave', hideTooltip);
+  });
+
+  var tooltip = document.getElementById('tooltip');
+  var ttName = document.getElementById('ttName');
+  var ttDesc = document.getElementById('ttDesc');
+
+  function showTooltip(e, key) {
+    var d = NODES[key];
+    ttName.textContent = d.plain;
+    ttDesc.textContent = d.tip;
+    tooltip.classList.add('show');
+    moveTooltip(e);
+  }
+  function moveTooltip(e) {
+    var pad = 16;
+    var w = tooltip.offsetWidth || 240;
+    var h = tooltip.offsetHeight || 60;
+    var x = e.clientX + pad;
+    var y = e.clientY + pad;
+    if (x + w > window.innerWidth - 10) x = e.clientX - w - pad;
+    if (y + h > window.innerHeight - 10) y = e.clientY - h - pad;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+  function hideTooltip() { tooltip.classList.remove('show'); }
+
+  /* flow playback */
+  var stepIdx = -1;
+  var playing = false;
+  var playTimer = null;
+  var stepCountEl = document.getElementById('stepCount');
+  var narrationEl = document.getElementById('narrationText');
+
+  function clearHighlights() {
+    Object.keys(nodeEls).forEach(function (k) { nodeEls[k].classList.remove('active', 'dimmed'); });
+    Object.keys(edgeEls).forEach(function (k) { edgeEls[k].classList.remove('active'); });
+  }
+
+  function applyStep(i) {
+    if (i < 0 || i >= STEPS.length) return;
+    var s = STEPS[i];
+    clearHighlights();
+    Object.keys(nodeEls).forEach(function (k) {
+      if (k !== s.node) nodeEls[k].classList.add('dimmed');
+    });
+    nodeEls[s.node].classList.add('active');
+    if (s.edge && edgeEls[s.edge]) edgeEls[s.edge].classList.add('active');
+    narrationEl.textContent = s.text;
+    stepCountEl.textContent = 'step ' + (i + 1) + ' / ' + STEPS.length;
+    selectNode(s.node);
+  }
+
+  function resetFlow() {
+    stepIdx = -1;
+    stopPlay();
+    clearHighlights();
+    narrationEl.textContent = 'Press play to walk a real customer request through the system, step by step.';
+    stepCountEl.textContent = 'step 0 / ' + STEPS.length;
+  }
+
+  function nextStep() {
+    if (stepIdx >= STEPS.length - 1) { stopPlay(); return; }
+    stepIdx++;
+    applyStep(stepIdx);
+  }
+  function prevStep() {
+    if (stepIdx <= 0) return;
+    stepIdx--;
+    applyStep(stepIdx);
+  }
+  function startPlay() {
+    if (stepIdx >= STEPS.length - 1) stepIdx = -1;
+    playing = true;
+    document.getElementById('playBtn').textContent = '⏸ pause';
+    nextStep();
+    playTimer = setInterval(function () {
+      if (stepIdx >= STEPS.length - 1) { stopPlay(); return; }
+      nextStep();
+    }, 5000);
+  }
+  function stopPlay() {
+    playing = false;
+    document.getElementById('playBtn').textContent = '▶ play';
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  }
+
+  document.getElementById('playBtn').addEventListener('click', function () {
+    if (playing) stopPlay(); else startPlay();
+  });
+  document.getElementById('nextBtn').addEventListener('click', function () { stopPlay(); nextStep(); });
+  document.getElementById('prevBtn').addEventListener('click', function () { stopPlay(); prevStep(); });
+  document.getElementById('resetBtn').addEventListener('click', resetFlow);
+
+  document.getElementById('svgWrap').addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight') { e.preventDefault(); stopPlay(); nextStep(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); stopPlay(); prevStep(); }
+  });
+
+  resetFlow();
+</script>
+
+</body>
+</html>

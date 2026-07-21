@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>enterprise-network-platform — walkthrough</title>
+<meta name="description" content="An interactive walkthrough of enterprise-network-platform: a simulated 5,000-user enterprise network whose routing logic is proofread by Batfish before a single device is deployed." />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #0a0e0f;
+    --bg2:         #0c1112;
+    --win-bg:      #0f1517;
+    --win-header:  #131a1c;
+    --border:      #1d2b26;
+    --border-brt:  #2a4038;
+    --fg:          #d6e0dd;
+    --muted:       #6b7d76;
+    --dim:         #4a5c56;
+    --prompt:      #4ade80;
+    --green:       #3fb950;
+    --amber:       #f0883e;
+    --cyan:        #22d3ee;
+    --blue:        #58a6ff;
+    --purple:      #c9a0ff;
+    --red:         #ff5f56;
+    --yellow:      #ffbd2e;
+    --radius:      8px;
+    --mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', 'Fira Code',
+            Menlo, Consolas, 'Liberation Mono', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.7;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse 70% 50% at 50% -10%, rgba(74,222,128,0.05) 0%, transparent 60%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+  }
+
+  a { color: inherit; }
+
+  .prose {
+    font-family: var(--sans);
+    line-height: 1.7;
+    max-width: 62ch;
+    color: var(--fg);
+  }
+  .prose.dim { color: var(--muted); }
+
+  /* ── TOPBAR ──────────────────────────────────────────────────────── */
+  .topbar {
+    position: fixed; top: 0; width: 100%; z-index: 100;
+    background: rgba(10,14,15,0.9);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    max-width: 1080px; margin: 0 auto;
+    padding: 0 1.5rem;
+    height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem;
+  }
+  .crumb { font-size: 0.8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .crumb a { text-decoration: none; }
+  .crumb a:hover { color: var(--prompt); }
+  .topbar-links { display: flex; gap: 1.5rem; list-style: none; flex-shrink: 0; }
+  .topbar-links a {
+    color: var(--muted); text-decoration: none; font-size: 0.8rem;
+    transition: color 0.2s;
+  }
+  .topbar-links a:hover { color: var(--prompt); }
+  .back-link {
+    color: var(--prompt); text-decoration: none; font-size: 0.8rem; flex-shrink: 0;
+  }
+  @media (max-width: 720px) { .topbar-links { display: none; } }
+
+  /* ── SECTION SHARED ──────────────────────────────────────────────── */
+  section { padding: 4.25rem 1.5rem; }
+  .container { max-width: 1080px; margin: 0 auto; }
+  .section-comment { font-size: 0.82rem; color: var(--dim); margin-bottom: 0.6rem; }
+  .section-comment::before { content: '# '; }
+  .section-title {
+    font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+    font-weight: 700; letter-spacing: -0.5px;
+    margin-bottom: 1.25rem;
+    display: flex; align-items: baseline; gap: 0.6rem;
+  }
+  .section-title .p { color: var(--prompt); font-size: 0.85em; }
+
+  /* ── HERO ────────────────────────────────────────────────────────── */
+  .hero-dive { padding-top: 6.5rem; }
+  .tagline {
+    font-size: clamp(1.4rem, 3.2vw, 2rem);
+    font-weight: 700; letter-spacing: -0.5px;
+    max-width: 34ch;
+    margin: 0.75rem 0 1.25rem;
+    line-height: 1.35;
+  }
+  .lede { margin-bottom: 1.5rem; font-size: 1rem; }
+  .callout {
+    font-size: 0.88rem; color: var(--fg);
+    font-family: var(--sans);
+    background: rgba(240,136,62,0.06);
+    border-left: 2px solid var(--amber);
+    padding: 0.85rem 1.1rem;
+    margin-bottom: 1.5rem;
+    max-width: 62ch;
+    line-height: 1.65;
+  }
+  .callout-lbl { color: var(--amber); font-family: var(--mono); font-size: 0.82rem; display: block; margin-bottom: 0.3rem; }
+  .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .tag {
+    font-size: 0.72rem; font-family: var(--mono);
+    padding: 0.15rem 0.5rem; border-radius: 4px;
+    background: rgba(34,211,238,0.07); color: var(--cyan);
+    border: 1px solid rgba(34,211,238,0.18);
+  }
+
+  /* ── ANALOGY ─────────────────────────────────────────────────────── */
+  .analogy {
+    border-left: 3px solid var(--border-brt);
+    padding-left: 1.5rem;
+  }
+  .analogy p { margin-bottom: 1.1rem; }
+  .analogy p:last-child { margin-bottom: 0; }
+
+  /* ── TERM WINDOW (reused chrome) ─────────────────────────────────── */
+  .term-window {
+    background: var(--win-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+  }
+  .term-titlebar {
+    background: var(--win-header);
+    border-bottom: 1px solid var(--border);
+    padding: 0.65rem 1rem;
+    display: flex; align-items: center; gap: 0.9rem;
+  }
+  .term-dots { display: flex; gap: 0.4rem; flex-shrink: 0; }
+  .term-dot { width: 11px; height: 11px; border-radius: 50%; }
+  .term-dot.red { background: var(--red); }
+  .term-dot.yellow { background: var(--yellow); }
+  .term-dot.green { background: var(--green); }
+  .term-title { font-size: 0.76rem; color: var(--muted); flex: 1; text-align: center; margin-right: 3.4rem; }
+  .term-body { padding: 1.5rem; }
+
+  /* ── DIAGRAM ─────────────────────────────────────────────────────── */
+  .dive-grid { display: grid; grid-template-columns: 1fr 320px; gap: 1.25rem; align-items: start; }
+  .svg-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; }
+  .svg-wrap:focus { outline: 1px solid var(--border-brt); }
+  svg#diagram { width: 100%; height: auto; display: block; }
+
+  .node rect { fill: var(--win-header); stroke: var(--border-brt); stroke-width: 1.25; transition: all 0.25s; }
+  .node .plain { fill: var(--fg); font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+  .node .sub { fill: var(--muted); font-family: var(--mono); font-size: 9.5px; }
+  .node { cursor: pointer; }
+  .node:hover rect { stroke: var(--prompt); }
+  .node.active rect { fill: rgba(240,136,62,0.14); stroke: var(--amber); stroke-width: 2; filter: url(#nodeGlow); }
+  .node.active .plain { fill: var(--amber); }
+  .node.dimmed { opacity: 0.32; }
+  .node:focus { outline: none; }
+  .node:focus rect { stroke: var(--cyan); stroke-width: 2; }
+
+  .edge { fill: none; stroke: var(--border-brt); stroke-width: 1.4; marker-end: url(#arrow); }
+  .edge.active { stroke: var(--amber); stroke-width: 2; stroke-dasharray: 6 4; animation: dashmove 0.6s linear infinite; marker-end: url(#arrowActive); }
+  @keyframes dashmove { to { stroke-dashoffset: -20; } }
+
+  /* tooltip */
+  .tooltip {
+    position: fixed; z-index: 200; pointer-events: none;
+    background: var(--win-header); border: 1px solid var(--border-brt);
+    border-radius: 6px; padding: 0.55rem 0.75rem; max-width: 240px;
+    font-family: var(--mono); font-size: 0.76rem; color: var(--fg);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    opacity: 0; transition: opacity 0.12s;
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip .tt-name { color: var(--prompt); font-weight: 600; margin-bottom: 0.2rem; }
+  .tooltip .tt-desc { color: var(--muted); font-family: var(--sans); line-height: 1.4; }
+
+  /* detail panel */
+  .panel {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 1.1rem; min-height: 300px;
+  }
+  .panel-name { font-size: 1rem; font-weight: 700; color: var(--fg); }
+  .panel-sub { font-size: 0.75rem; color: var(--dim); margin-bottom: 0.15rem; }
+  .panel-role { font-size: 0.78rem; color: var(--cyan); margin: 0.3rem 0 0.9rem; }
+  .panel-what { font-size: 0.87rem; margin-bottom: 1rem; }
+  .panel-placeholder { color: var(--muted); font-family: var(--sans); font-size: 0.88rem; line-height: 1.7; }
+  .chip-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--mono); font-size: 0.74rem; color: var(--fg);
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-brt);
+    border-radius: 4px; padding: 0.35rem 0.65rem; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .chip:hover { border-color: var(--prompt); color: var(--prompt); }
+  .chip.open { background: rgba(74,222,128,0.1); border-color: var(--prompt); color: var(--prompt); }
+  .chip-panel { font-size: 0.85rem; color: var(--fg); padding-top: 0.25rem; }
+  .chip-panel[hidden] { display: none; }
+
+  /* narration bar */
+  .narration-bar {
+    margin-top: 1rem; background: var(--win-header);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.9rem 1.1rem;
+  }
+  .narration-controls { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
+  .nbtn {
+    font-family: var(--mono); font-size: 0.76rem; color: var(--fg);
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-brt);
+    border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;
+  }
+  .nbtn:hover { border-color: var(--prompt); color: var(--prompt); }
+  .nbtn.primary { color: var(--prompt); border-color: rgba(74,222,128,0.4); }
+  .step-count { font-size: 0.75rem; color: var(--dim); margin-left: auto; }
+  .narration-text { font-family: var(--sans); font-size: 0.92rem; color: var(--fg); line-height: 1.6; min-height: 2.6em; }
+
+  @media (max-width: 900px) {
+    .dive-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── RISKS TABLE ─────────────────────────────────────────────────── */
+  .risk-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  .risk-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border-brt); }
+  .risk-table td { padding: 0.75rem 0.9rem; border-bottom: 1px solid var(--border); font-family: var(--sans); color: var(--fg); vertical-align: top; }
+  .risk-table td:first-child { color: var(--fg); font-weight: 500; }
+  @media (max-width: 640px) {
+    .risk-table thead { display: none; }
+    .risk-table, .risk-table tbody, .risk-table tr, .risk-table td { display: block; width: 100%; }
+    .risk-table tr { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.75rem; padding: 0.5rem 0.25rem; }
+    .risk-table td { border-bottom: none; padding: 0.4rem 0.75rem; }
+    .risk-table td::before { content: attr(data-label); display: block; font-family: var(--mono); font-size: 0.7rem; color: var(--dim); margin-bottom: 0.2rem; }
+  }
+  .not-box {
+    margin-top: 1.5rem; font-size: 0.86rem; font-family: var(--sans);
+    color: var(--fg); background: rgba(240,136,62,0.05);
+    border-left: 2px solid var(--amber); padding: 0.9rem 1.1rem; line-height: 1.65; max-width: 62ch;
+  }
+  .not-box b { color: var(--amber); font-family: var(--mono); }
+
+  /* ── GLOSSARY ────────────────────────────────────────────────────── */
+  details.glossary summary {
+    cursor: pointer; font-size: 0.9rem; color: var(--prompt);
+    padding: 0.75rem 0; list-style: none; user-select: none;
+  }
+  details.glossary summary::-webkit-details-marker { display: none; }
+  details.glossary summary::before { content: '▸ '; }
+  details.glossary[open] summary::before { content: '▾ '; }
+  .glossary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem; margin-top: 0.75rem;
+  }
+  .g-term { font-size: 0.85rem; color: var(--fg); font-weight: 600; margin-bottom: 0.25rem; }
+  .g-def { font-family: var(--sans); font-size: 0.83rem; color: var(--muted); line-height: 1.55; }
+
+  /* ── FOOTER ──────────────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1.5rem; text-align: center;
+    font-size: 0.78rem; color: var(--dim);
+    display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;
+  }
+  footer a { color: var(--dim); text-decoration: none; }
+  footer a:hover { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="crumb"><a href="../index.html">~</a> / <a href="../index.html#projects">projects</a> / enterprise-network-platform</div>
+    <nav class="topbar-links">
+      <a href="#diagram">diagram</a>
+      <a href="#risks">what could go wrong</a>
+      <a href="#glossary">glossary</a>
+    </nav>
+    <a href="../index.html" class="back-link">← back</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero-dive">
+  <div class="container">
+    <p class="section-comment">case study · enterprise-network-platform</p>
+    <h1 class="tagline">A private motorway network for 5,000 people — proofread before a single road is built.</h1>
+    <p class="lede prose">Large companies run their own private road network for data — offices, a data center, and cloud regions that all need to reach each other reliably. This project builds one of those networks in miniature, and proves its routing logic is sound before a single switch is powered on.</p>
+    <div class="callout">
+      <span class="callout-lbl"># proofread first</span>
+      Every change to this network's configuration is checked by an automated inspector before it's ever deployed — for routing loops, broken references, mismatched sessions — on paper, in minutes. Open <b style="color:var(--amber)">the proofreader</b> in the diagram below for how that works.
+    </div>
+    <div class="tags">
+      <span class="tag">Containerlab</span>
+      <span class="tag">EVPN-VXLAN</span>
+      <span class="tag">BGP / OSPF</span>
+      <span class="tag">Nornir</span>
+      <span class="tag">Ansible</span>
+      <span class="tag">Batfish</span>
+      <span class="tag">pyATS</span>
+    </div>
+  </div>
+</section>
+
+<!-- IDEA WITHOUT JARGON -->
+<section id="idea">
+  <div class="container">
+    <p class="section-comment">the idea, without the jargon</p>
+    <h2 class="section-title"><span class="p">$</span> how to think about this</h2>
+    <div class="analogy prose">
+      <p>Think of this as the road network for a company of 5,000 people, spread across a headquarters, a branch office, and two AWS regions. There are motorways between the major sites, junctions where local traffic joins the highway, and a border checkpoint where traffic leaves the country entirely for the cloud.</p>
+      <p>Every junction has to agree on the rules — which way is fastest, what happens if a road closes, how a car from the branch office finds its way to a server sitting in AWS. That agreement is negotiated automatically, the moment two routers connect to each other.</p>
+      <p>And before a single road is actually built, an inspector proofreads every road sign on paper — checking for signs that contradict each other, or point nowhere — so mistakes are caught in the blueprint, not on opening day.</p>
+    </div>
+  </div>
+</section>
+
+<!-- DIAGRAM -->
+<section id="diagram" style="background:var(--bg2);">
+  <div class="container">
+    <p class="section-comment">how the pieces fit together</p>
+    <h2 class="section-title"><span class="p">$</span> walk a real packet across the network</h2>
+
+    <div class="term-window">
+      <div class="term-titlebar">
+        <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
+        <div class="term-title">topology.svg</div>
+      </div>
+      <div class="term-body">
+        <div class="dive-grid">
+
+          <div class="svg-wrap" id="svgWrap" tabindex="0" aria-label="Network topology diagram, use arrow keys to step through the flow">
+            <svg id="diagram" viewBox="0 0 900 640" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#2a4038"></path>
+                </marker>
+                <marker id="arrowActive" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#f0883e"></path>
+                </marker>
+                <filter id="nodeGlow" x="-40%" y="-40%" width="180%" height="180%">
+                  <feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur>
+                  <feMerge>
+                    <feMergeNode in="blur"></feMergeNode>
+                    <feMergeNode in="SourceGraphic"></feMergeNode>
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <!-- edges -->
+              <path class="edge" id="e-batfish-nornir" d="M670,80 L670,140"></path>
+              <path class="edge" id="e-nornir-branch" d="M560,172 C 420,172 420,48 260,48"></path>
+              <path class="edge" id="e-branch-wanhq" d="M150,80 L150,104"></path>
+              <path class="edge" id="e-wanhq-spine" d="M150,168 L150,192"></path>
+              <path class="edge" id="e-spine-leaf" d="M150,256 L150,280"></path>
+              <path class="edge" id="e-leaf-cloudedge" d="M150,344 L150,368"></path>
+              <path class="edge" id="e-cloudedge-tgw" d="M150,432 L150,456"></path>
+              <path class="edge" id="e-tgw-vpc" d="M150,520 L150,544"></path>
+              <path class="edge" id="e-vpc-pyats" d="M260,576 C 420,576 420,296 560,296"></path>
+              <path class="edge" id="e-pyats-observability" d="M670,328 L670,368"></path>
+
+              <!-- nodes: main pipeline (the packet's path) -->
+              <g class="node" tabindex="0" role="button" data-key="branch" aria-label="The branch office — wan-branch router, OSPF stub area">
+                <rect x="40" y="16" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="42" text-anchor="middle">The branch office</text>
+                <text class="sub" x="150" y="60" text-anchor="middle">wan-branch · OSPF stub area</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="wanhq" aria-label="The WAN hub — wan-hq router, OSPF multi-area, ASN 65200">
+                <rect x="40" y="104" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="130" text-anchor="middle">The WAN hub</text>
+                <text class="sub" x="150" y="148" text-anchor="middle">wan-hq · ASN 65200</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="spine" aria-label="The interchange — spine1 and spine2, EVPN route reflectors, ASN 65100">
+                <rect x="40" y="192" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="218" text-anchor="middle">The interchange</text>
+                <text class="sub" x="150" y="236" text-anchor="middle">spine1 + spine2 · ASN 65100</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="leaf" aria-label="The junction — leaf1 through leaf4, VXLAN VTEPs">
+                <rect x="40" y="280" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="306" text-anchor="middle">The junction</text>
+                <text class="sub" x="150" y="324" text-anchor="middle">leaf1–4 · VXLAN VTEPs</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="cloudedge" aria-label="The border checkpoint — cloud-edge router, strongSwan, ASN 65300">
+                <rect x="40" y="368" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="394" text-anchor="middle">The border checkpoint</text>
+                <text class="sub" x="150" y="412" text-anchor="middle">cloud-edge · ASN 65300</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="tgw" aria-label="The cloud's highway hub — AWS Transit Gateway, hub-spoke">
+                <rect x="40" y="456" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="482" text-anchor="middle">The cloud's highway hub</text>
+                <text class="sub" x="150" y="500" text-anchor="middle">AWS Transit Gateway</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="vpc" aria-label="The destination building — AWS VPC, prod-east and prod-west">
+                <rect x="40" y="544" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="570" text-anchor="middle">The destination building</text>
+                <text class="sub" x="150" y="588" text-anchor="middle">AWS VPC — prod-east / west</text>
+              </g>
+
+              <!-- nodes: support column (build, prove, verify, watch) -->
+              <g class="node" tabindex="0" role="button" data-key="batfish" aria-label="The proofreader — Batfish offline config analysis">
+                <rect x="560" y="16" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="42" text-anchor="middle">The proofreader</text>
+                <text class="sub" x="670" y="60" text-anchor="middle">Batfish — offline config analysis</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="nornir" aria-label="The road crew — Nornir and Ansible automation">
+                <rect x="560" y="140" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="166" text-anchor="middle">The road crew</text>
+                <text class="sub" x="670" y="184" text-anchor="middle">Nornir + Ansible</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="pyats" aria-label="The test drive — pyATS and Genie live lab assertions">
+                <rect x="560" y="264" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="290" text-anchor="middle">The test drive</text>
+                <text class="sub" x="670" y="308" text-anchor="middle">pyATS / Genie — live assertions</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="observability" aria-label="The traffic cameras — Prometheus, SNMP Exporter, Grafana">
+                <rect x="560" y="368" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="394" text-anchor="middle">The traffic cameras</text>
+                <text class="sub" x="670" y="412" text-anchor="middle">Prometheus + SNMP + Grafana</text>
+              </g>
+            </svg>
+          </div>
+
+          <div class="panel" id="panel">
+            <div class="panel-placeholder">Hover a box for a quick description, click one for the full detail, or press play below to walk a real packet across the network.</div>
+          </div>
+
+        </div>
+
+        <div class="narration-bar">
+          <div class="narration-controls">
+            <button class="nbtn" id="resetBtn" title="Reset">⟲ reset</button>
+            <button class="nbtn" id="prevBtn" title="Previous step">⟨ prev</button>
+            <button class="nbtn primary" id="playBtn" title="Play / pause">▶ play</button>
+            <button class="nbtn" id="nextBtn" title="Next step">next ⟩</button>
+            <span class="step-count" id="stepCount">step 0 / 11</span>
+          </div>
+          <p class="narration-text" id="narrationText">Press play to walk a real packet from a branch office to AWS, step by step.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RISKS -->
+<section id="risks">
+  <div class="container">
+    <p class="section-comment">what could go wrong</p>
+    <h2 class="section-title"><span class="p">$</span> failure modes, handled on purpose</h2>
+
+    <table class="risk-table">
+      <thead>
+        <tr><th>If this happens</th><th>What the system does</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-label="If this happens">One of the two spine switches goes down</td>
+          <td data-label="What the system does">Bandwidth halves as one path disappears, but the fabric stays reachable — a health check notices in under a second.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">A single leaf switch goes down</td>
+          <td data-label="What the system does">Only the hosts on that one leaf lose connectivity; the fix is restarting it and reprovisioning its config.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">The WAN link to headquarters goes down</td>
+          <td data-label="What the system does">The branch office and the data center become isolated from each other — no second path exists yet in this model.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">The cloud-edge router goes down</td>
+          <td data-label="What the system does">The hybrid tunnel to AWS drops, but the data center itself keeps running unaffected.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">An entire AWS availability zone fails</td>
+          <td data-label="What the system does">Cloud resources fail over automatically to another zone; the Transit Gateway itself is resilient across zones.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="not-box">
+      <b># what this project is not:</b> a network carrying real traffic. All 5,000 users are simulated, the AWS side of Terraform is manual-dispatch only with no live account assumed, the proofreader checks routing logic only — not the actual forwarding hardware — and there's no second WAN path yet if the link to headquarters fails.
+    </div>
+  </div>
+</section>
+
+<!-- GLOSSARY -->
+<section id="glossary" style="background:var(--bg2); padding-top:2rem; padding-bottom:3rem;">
+  <div class="container">
+    <details class="glossary">
+      <summary># glossary — 10 terms, click to expand</summary>
+      <div class="glossary-grid">
+        <div><div class="g-term">EVPN-VXLAN</div><div class="g-def">A way to make servers on different physical switches act like they're on one local network, by wrapping their traffic in an extra header.</div></div>
+        <div><div class="g-term">eBGP</div><div class="g-def">A routing protocol used between the data-center switches here, chosen because it scales cleanly to hundreds of switches without loops.</div></div>
+        <div><div class="g-term">OSPF</div><div class="g-def">A routing protocol used across the office and branch network, so every router learns the fastest path to everywhere else.</div></div>
+        <div><div class="g-term">IKEv2</div><div class="g-def">The protocol that negotiates and secures the encrypted tunnel connecting the office network to AWS.</div></div>
+        <div><div class="g-term">Transit Gateway</div><div class="g-def">A central AWS router that every cloud network connects to, instead of connecting to each other directly.</div></div>
+        <div><div class="g-term">Batfish</div><div class="g-def">A tool that reads network configuration files and calculates what the network would actually do — without needing it to be running.</div></div>
+        <div><div class="g-term">pyATS</div><div class="g-def">A testing framework that logs into real, running network devices and checks they behave the way they were designed to.</div></div>
+        <div><div class="g-term">Route reflector</div><div class="g-def">A device that shares routing information with many others, so they don't all need to connect to each other directly.</div></div>
+        <div><div class="g-term">ASN</div><div class="g-def">An ID number for a chunk of network under one set of routing rules — every major site here has its own.</div></div>
+        <div><div class="g-term">ECMP</div><div class="g-def">Splitting traffic across multiple equal paths at once, so losing one path only reduces capacity instead of cutting it off.</div></div>
+      </div>
+    </details>
+  </div>
+</section>
+
+<footer>
+  <a href="https://github.com/Kanim21/enterprise-network-platform" target="_blank" rel="noopener">github ↗</a>
+  <a href="../index.html">← back to all projects</a>
+</footer>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-name" id="ttName"></div>
+  <div class="tt-desc" id="ttDesc"></div>
+</div>
+
+<script>
+  var NODES = {
+    branch: {
+      plain: "The branch office", tech: "wan-branch router — OSPF stub area", role: "Where 500 users connect",
+      tip: "500 users at a branch site, reaching the network over a single WAN link.",
+      what: "A branch site with about 500 users, connected to the rest of the network over one WAN link with a default route toward headquarters.",
+      why: "Branch sites don't need to know the whole network — just how to reach the backbone. A stub area keeps their routing table small.",
+      tradeoff: "Simple and light on the branch router, but it depends entirely on that one link to HQ — there's no second path modeled yet if it goes down."
+    },
+    wanhq: {
+      plain: "The WAN hub", tech: "wan-hq router — OSPF multi-area, ASN 65200", role: "The backbone every site depends on",
+      tip: "The OSPF backbone every site and the data center connect through.",
+      what: "Sits at the center of the enterprise WAN, running OSPF across multiple areas and eBGP into the data-center fabric.",
+      why: "Every branch and the data center need one shared backbone to reach each other and the outside world through.",
+      tradeoff: "Everything currently routes through this single hub. The project's own scaling notes call out a second WAN path as future work, not something modeled yet."
+    },
+    spine: {
+      plain: "The interchange", tech: "spine1 + spine2 — EVPN route reflectors, ASN 65100", role: "Where every leaf connects",
+      tip: "Two switches that connect every leaf and reflect EVPN routes over eBGP.",
+      what: "Two spine switches route between every leaf switch and reflect EVPN routes, using eBGP as the underlay instead of OSPF or IS-IS.",
+      why: "A 2-spine design means losing one spine only halves available bandwidth via ECMP — it doesn't take the fabric down.",
+      tradeoff: "eBGP-only keeps the fabric simple and loop-free at scale, at the cost of slightly more configuration on every single leaf."
+    },
+    leaf: {
+      plain: "The junction", tech: "leaf1–4 — VXLAN VTEPs", role: "Where hosts plug in",
+      tip: "Where servers plug in, wrapped in VXLAN to cross the fabric as one network.",
+      what: "Four leaf switches connect the actual servers and wrap their traffic in VXLAN so it can cross the spine fabric as one overlay network.",
+      why: "EVPN-VXLAN lets workloads on different physical switches behave like they're on the same local network.",
+      tradeoff: "Standards-based and multi-vendor-friendly, but it requires jumbo frames everywhere in the fabric to fit the extra header VXLAN adds to every packet."
+    },
+    cloudedge: {
+      plain: "The border checkpoint", tech: "cloud-edge router — strongSwan, ASN 65300", role: "Where the network leaves the building",
+      tip: "The one router that terminates the encrypted tunnel out to AWS.",
+      what: "The one router that terminates the encrypted tunnel to AWS, translating between the on-premises network and the hybrid cloud connection.",
+      why: "Keeping hybrid connectivity on one dedicated router means the encryption and route-exchange logic lives in exactly one place.",
+      tradeoff: "It's a single choke point — if this router goes down, the whole hybrid link to AWS goes down while the data center itself keeps running fine."
+    },
+    tgw: {
+      plain: "The cloud's highway hub", tech: "AWS Transit Gateway — hub-spoke", role: "Where every VPC connects",
+      tip: "AWS's central hub — every VPC and the on-prem VPN connect through it.",
+      what: "A central AWS router that every VPC and the on-premises VPN connect to, instead of each pair connecting directly to each other.",
+      why: "Hub-and-spoke means adding a new VPC or region is one new connection, not a new connection to every existing one.",
+      tradeoff: "Fewer connections to manage, but every packet between two VPCs now takes a small detour through the hub — about 1ms more than a direct connection."
+    },
+    vpc: {
+      plain: "The destination building", tech: "AWS VPC — prod-east / prod-west", role: "Where the workload actually runs",
+      tip: "The AWS network where the actual application server lives.",
+      what: "The actual AWS network where an application server lives — one VPC in each of two regions, one of them a live disaster-recovery standby.",
+      why: "Two regions mean a full regional AWS outage doesn't take the workload down entirely.",
+      tradeoff: "Both regions connect through the same central hub, so a Transit Gateway problem — rare, but possible — could affect both at once."
+    },
+    nornir: {
+      plain: "The road crew", tech: "Nornir + Ansible", role: "Builds and changes the network",
+      tip: "Python automation that provisions and changes every device from code.",
+      what: "Python automation that provisions every device from inventory, applies changes, and rolls out new VLANs or sites without hand-typing config.",
+      why: "Nornir's Python-native inventory model won out over pure Ansible for this project's structured, code-first workflow — a deliberate early decision.",
+      tradeoff: "More Python code to maintain than a pure-Ansible approach, in exchange for tighter control and easier testing of the automation itself."
+    },
+    batfish: {
+      plain: "The proofreader", tech: "Batfish — offline config analysis", role: "Checks the map before the roads are built",
+      tip: "Reads every config file and proves the routing logic is sound, before deployment.",
+      what: "Reads every config file before it's deployed and computes what the network's routing would actually do — no live devices required.",
+      why: "Catching a routing loop or an undefined reference on paper is far cheaper than catching it after it's live in a real network.",
+      tradeoff: "It only checks the control plane — the routing logic — not the actual forwarding hardware, and some FRR-specific syntax doesn't parse perfectly yet."
+    },
+    pyats: {
+      plain: "The test drive", tech: "pyATS / Genie — live lab assertions", role: "Checks the real thing after it's deployed",
+      tip: "Logs into the real, running lab and checks it matches the design.",
+      what: "After the lab actually boots, pyATS logs into every device and confirms BGP sessions, interfaces, and routes came up the way they were designed to.",
+      why: "The proofreader checks the plan; this checks that reality matches the plan once the network is actually running.",
+      tradeoff: "It needs the full lab running to test anything — about 10 minutes of boot and convergence time before a single assertion can run."
+    },
+    observability: {
+      plain: "The traffic cameras", tech: "Prometheus + SNMP Exporter + Grafana", role: "Watches the network stay healthy",
+      tip: "Watches every interface and BGP session, all the time.",
+      what: "Continuously polls every device over SNMP and graphs interface counters, BGP session state, and fabric health on dashboards.",
+      why: "Knowing a link flapped five minutes ago is only useful if someone's actually watching — this is what a real network operations center relies on.",
+      tradeoff: "SNMP polling is simple and universally supported, but it's slower to notice a flap than a system built on real-time streaming telemetry."
+    }
+  };
+
+  var STEPS = [
+    { node: "batfish", edge: null, text: "Before a single router boots, the proofreader reads every config file and proves there are no routing loops or broken references." },
+    { node: "nornir", edge: "e-batfish-nornir", text: "Once the configs pass, the road crew — Nornir and Ansible — pushes them to every spine, leaf, WAN router, and the cloud edge." },
+    { node: "branch", edge: "e-nornir-branch", text: "A user at the branch office requests a file from a workload running in AWS." },
+    { node: "wanhq", edge: "e-branch-wanhq", text: "The branch router forwards it over OSPF to the WAN hub, the backbone for the whole enterprise network." },
+    { node: "spine", edge: "e-wanhq-spine", text: "The WAN hub hands off to the data-center spines over eBGP — the interchange every leaf connects through." },
+    { node: "leaf", edge: "e-spine-leaf", text: "A leaf switch wraps the packet for the VXLAN overlay and forwards it on toward the cloud edge." },
+    { node: "cloudedge", edge: "e-leaf-cloudedge", text: "The cloud edge unwraps it and prepares to send it off-premises, over an encrypted tunnel." },
+    { node: "tgw", edge: "e-cloudedge-tgw", text: "An IPSec tunnel, secured with IKEv2, carries it to AWS's Transit Gateway — the hub every VPC connects through." },
+    { node: "vpc", edge: "e-tgw-vpc", text: "The Transit Gateway routes it into the destination VPC, where the actual workload lives." },
+    { node: "pyats", edge: "e-vpc-pyats", text: "After every deploy, the test drive logs into the real lab and confirms BGP sessions actually came up as designed." },
+    { node: "observability", edge: "e-pyats-observability", text: "The traffic cameras keep watching every session and interface, long after this packet has arrived." }
+  ];
+
+  var nodeEls = {};
+  var edgeEls = {};
+  document.querySelectorAll('.node').forEach(function (el) { nodeEls[el.getAttribute('data-key')] = el; });
+  document.querySelectorAll('.edge').forEach(function (el) { edgeEls[el.id] = el; });
+
+  var panel = document.getElementById('panel');
+  var selectedKey = null;
+  var openChip = null;
+
+  function renderPanel(key) {
+    var d = NODES[key];
+    if (!d) return;
+    var html = '';
+    html += '<div class="panel-sub">' + d.tech + '</div>';
+    html += '<div class="panel-name">' + d.plain + '</div>';
+    html += '<div class="panel-role">' + d.role + '</div>';
+    html += '<div class="panel-what prose">' + d.what + '</div>';
+    html += '<div class="chip-row">';
+    html += '<button class="chip" data-chip="why">why it\'s there</button>';
+    html += '<button class="chip" data-chip="tradeoff">the tradeoff</button>';
+    html += '</div>';
+    html += '<div class="chip-panel prose" id="chipWhy" hidden>' + d.why + '</div>';
+    html += '<div class="chip-panel prose" id="chipTradeoff" hidden>' + d.tradeoff + '</div>';
+    panel.innerHTML = html;
+    openChip = null;
+
+    panel.querySelectorAll('.chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var which = btn.getAttribute('data-chip');
+        var whyPanel = document.getElementById('chipWhy');
+        var tPanel = document.getElementById('chipTradeoff');
+        var whyChip = panel.querySelector('[data-chip="why"]');
+        var tChip = panel.querySelector('[data-chip="tradeoff"]');
+        if (openChip === which) {
+          openChip = null;
+          whyPanel.hidden = true; tPanel.hidden = true;
+          whyChip.classList.remove('open'); tChip.classList.remove('open');
+          return;
+        }
+        openChip = which;
+        whyPanel.hidden = (which !== 'why');
+        tPanel.hidden = (which !== 'tradeoff');
+        whyChip.classList.toggle('open', which === 'why');
+        tChip.classList.toggle('open', which === 'tradeoff');
+      });
+    });
+  }
+
+  function selectNode(key) {
+    selectedKey = key;
+    renderPanel(key);
+  }
+
+  Object.keys(nodeEls).forEach(function (key) {
+    var el = nodeEls[key];
+    el.addEventListener('click', function () { selectNode(key); });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectNode(key); }
+    });
+    el.addEventListener('mouseenter', function (e) { showTooltip(e, key); });
+    el.addEventListener('mousemove', function (e) { moveTooltip(e); });
+    el.addEventListener('mouseleave', hideTooltip);
+  });
+
+  var tooltip = document.getElementById('tooltip');
+  var ttName = document.getElementById('ttName');
+  var ttDesc = document.getElementById('ttDesc');
+
+  function showTooltip(e, key) {
+    var d = NODES[key];
+    ttName.textContent = d.plain;
+    ttDesc.textContent = d.tip;
+    tooltip.classList.add('show');
+    moveTooltip(e);
+  }
+  function moveTooltip(e) {
+    var pad = 16;
+    var w = tooltip.offsetWidth || 240;
+    var h = tooltip.offsetHeight || 60;
+    var x = e.clientX + pad;
+    var y = e.clientY + pad;
+    if (x + w > window.innerWidth - 10) x = e.clientX - w - pad;
+    if (y + h > window.innerHeight - 10) y = e.clientY - h - pad;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+  function hideTooltip() { tooltip.classList.remove('show'); }
+
+  /* flow playback */
+  var stepIdx = -1;
+  var playing = false;
+  var playTimer = null;
+  var stepCountEl = document.getElementById('stepCount');
+  var narrationEl = document.getElementById('narrationText');
+
+  function clearHighlights() {
+    Object.keys(nodeEls).forEach(function (k) { nodeEls[k].classList.remove('active', 'dimmed'); });
+    Object.keys(edgeEls).forEach(function (k) { edgeEls[k].classList.remove('active'); });
+  }
+
+  function applyStep(i) {
+    if (i < 0 || i >= STEPS.length) return;
+    var s = STEPS[i];
+    clearHighlights();
+    Object.keys(nodeEls).forEach(function (k) {
+      if (k !== s.node) nodeEls[k].classList.add('dimmed');
+    });
+    nodeEls[s.node].classList.add('active');
+    if (s.edge && edgeEls[s.edge]) edgeEls[s.edge].classList.add('active');
+    narrationEl.textContent = s.text;
+    stepCountEl.textContent = 'step ' + (i + 1) + ' / ' + STEPS.length;
+    selectNode(s.node);
+  }
+
+  function resetFlow() {
+    stepIdx = -1;
+    stopPlay();
+    clearHighlights();
+    narrationEl.textContent = 'Press play to walk a real packet from a branch office to AWS, step by step.';
+    stepCountEl.textContent = 'step 0 / ' + STEPS.length;
+  }
+
+  function nextStep() {
+    if (stepIdx >= STEPS.length - 1) { stopPlay(); return; }
+    stepIdx++;
+    applyStep(stepIdx);
+  }
+  function prevStep() {
+    if (stepIdx <= 0) return;
+    stepIdx--;
+    applyStep(stepIdx);
+  }
+  function startPlay() {
+    if (stepIdx >= STEPS.length - 1) stepIdx = -1;
+    playing = true;
+    document.getElementById('playBtn').textContent = '⏸ pause';
+    nextStep();
+    playTimer = setInterval(function () {
+      if (stepIdx >= STEPS.length - 1) { stopPlay(); return; }
+      nextStep();
+    }, 5000);
+  }
+  function stopPlay() {
+    playing = false;
+    document.getElementById('playBtn').textContent = '▶ play';
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  }
+
+  document.getElementById('playBtn').addEventListener('click', function () {
+    if (playing) stopPlay(); else startPlay();
+  });
+  document.getElementById('nextBtn').addEventListener('click', function () { stopPlay(); nextStep(); });
+  document.getElementById('prevBtn').addEventListener('click', function () { stopPlay(); prevStep(); });
+  document.getElementById('resetBtn').addEventListener('click', resetFlow);
+
+  document.getElementById('svgWrap').addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight') { e.preventDefault(); stopPlay(); nextStep(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); stopPlay(); prevStep(); }
+  });
+
+  resetFlow();
+</script>
+
+</body>
+</html>

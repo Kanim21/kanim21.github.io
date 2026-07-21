@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>pipeline-surgeon-labs — walkthrough</title>
+<meta name="description" content="An interactive walkthrough of pipeline-surgeon-labs: an agent that diagnoses a broken Maven build and proposes a fix, but never touches main." />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #0a0e0f;
+    --bg2:         #0c1112;
+    --win-bg:      #0f1517;
+    --win-header:  #131a1c;
+    --border:      #1d2b26;
+    --border-brt:  #2a4038;
+    --fg:          #d6e0dd;
+    --muted:       #6b7d76;
+    --dim:         #4a5c56;
+    --prompt:      #4ade80;
+    --green:       #3fb950;
+    --amber:       #f0883e;
+    --cyan:        #22d3ee;
+    --blue:        #58a6ff;
+    --purple:      #c9a0ff;
+    --red:         #ff5f56;
+    --yellow:      #ffbd2e;
+    --radius:      8px;
+    --mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', 'Fira Code',
+            Menlo, Consolas, 'Liberation Mono', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.7;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse 70% 50% at 50% -10%, rgba(74,222,128,0.05) 0%, transparent 60%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+  }
+
+  a { color: inherit; }
+
+  .prose {
+    font-family: var(--sans);
+    line-height: 1.7;
+    max-width: 62ch;
+    color: var(--fg);
+  }
+  .prose.dim { color: var(--muted); }
+
+  /* ── TOPBAR ──────────────────────────────────────────────────────── */
+  .topbar {
+    position: fixed; top: 0; width: 100%; z-index: 100;
+    background: rgba(10,14,15,0.9);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    max-width: 1080px; margin: 0 auto;
+    padding: 0 1.5rem;
+    height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem;
+  }
+  .crumb { font-size: 0.8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .crumb a { text-decoration: none; }
+  .crumb a:hover { color: var(--prompt); }
+  .topbar-links { display: flex; gap: 1.5rem; list-style: none; flex-shrink: 0; }
+  .topbar-links a {
+    color: var(--muted); text-decoration: none; font-size: 0.8rem;
+    transition: color 0.2s;
+  }
+  .topbar-links a:hover { color: var(--prompt); }
+  .back-link {
+    color: var(--prompt); text-decoration: none; font-size: 0.8rem; flex-shrink: 0;
+  }
+  @media (max-width: 720px) { .topbar-links { display: none; } }
+
+  /* ── SECTION SHARED ──────────────────────────────────────────────── */
+  section { padding: 4.25rem 1.5rem; }
+  .container { max-width: 1080px; margin: 0 auto; }
+  .section-comment { font-size: 0.82rem; color: var(--dim); margin-bottom: 0.6rem; }
+  .section-comment::before { content: '# '; }
+  .section-title {
+    font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+    font-weight: 700; letter-spacing: -0.5px;
+    margin-bottom: 1.25rem;
+    display: flex; align-items: baseline; gap: 0.6rem;
+  }
+  .section-title .p { color: var(--prompt); font-size: 0.85em; }
+
+  /* ── HERO ────────────────────────────────────────────────────────── */
+  .hero-dive { padding-top: 6.5rem; }
+  .tagline {
+    font-size: clamp(1.4rem, 3.2vw, 2rem);
+    font-weight: 700; letter-spacing: -0.5px;
+    max-width: 34ch;
+    margin: 0.75rem 0 1.25rem;
+    line-height: 1.35;
+  }
+  .lede { margin-bottom: 1.5rem; font-size: 1rem; }
+  .callout {
+    font-size: 0.88rem; color: var(--fg);
+    font-family: var(--sans);
+    background: rgba(240,136,62,0.06);
+    border-left: 2px solid var(--amber);
+    padding: 0.85rem 1.1rem;
+    margin-bottom: 1.5rem;
+    max-width: 62ch;
+    line-height: 1.65;
+  }
+  .callout-lbl { color: var(--amber); font-family: var(--mono); font-size: 0.82rem; display: block; margin-bottom: 0.3rem; }
+  .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .tag {
+    font-size: 0.72rem; font-family: var(--mono);
+    padding: 0.15rem 0.5rem; border-radius: 4px;
+    background: rgba(34,211,238,0.07); color: var(--cyan);
+    border: 1px solid rgba(34,211,238,0.18);
+  }
+
+  /* ── ANALOGY ─────────────────────────────────────────────────────── */
+  .analogy {
+    border-left: 3px solid var(--border-brt);
+    padding-left: 1.5rem;
+  }
+  .analogy p { margin-bottom: 1.1rem; }
+  .analogy p:last-child { margin-bottom: 0; }
+
+  /* ── TERM WINDOW (reused chrome) ─────────────────────────────────── */
+  .term-window {
+    background: var(--win-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+  }
+  .term-titlebar {
+    background: var(--win-header);
+    border-bottom: 1px solid var(--border);
+    padding: 0.65rem 1rem;
+    display: flex; align-items: center; gap: 0.9rem;
+  }
+  .term-dots { display: flex; gap: 0.4rem; flex-shrink: 0; }
+  .term-dot { width: 11px; height: 11px; border-radius: 50%; }
+  .term-dot.red { background: var(--red); }
+  .term-dot.yellow { background: var(--yellow); }
+  .term-dot.green { background: var(--green); }
+  .term-title { font-size: 0.76rem; color: var(--muted); flex: 1; text-align: center; margin-right: 3.4rem; }
+  .term-body { padding: 1.5rem; }
+
+  /* ── DIAGRAM ─────────────────────────────────────────────────────── */
+  .dive-grid { display: grid; grid-template-columns: 1fr 320px; gap: 1.25rem; align-items: start; }
+  .svg-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; }
+  .svg-wrap:focus { outline: 1px solid var(--border-brt); }
+  svg#diagram { width: 100%; height: auto; display: block; }
+
+  .node rect { fill: var(--win-header); stroke: var(--border-brt); stroke-width: 1.25; transition: all 0.25s; }
+  .node .plain { fill: var(--fg); font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+  .node .sub { fill: var(--muted); font-family: var(--mono); font-size: 9.5px; }
+  .node { cursor: pointer; }
+  .node:hover rect { stroke: var(--prompt); }
+  .node.active rect { fill: rgba(240,136,62,0.14); stroke: var(--amber); stroke-width: 2; filter: url(#nodeGlow); }
+  .node.active .plain { fill: var(--amber); }
+  .node.dimmed { opacity: 0.32; }
+  .node:focus { outline: none; }
+  .node:focus rect { stroke: var(--cyan); stroke-width: 2; }
+
+  .edge { fill: none; stroke: var(--border-brt); stroke-width: 1.4; marker-end: url(#arrow); }
+  .edge.active { stroke: var(--amber); stroke-width: 2; stroke-dasharray: 6 4; animation: dashmove 0.6s linear infinite; marker-end: url(#arrowActive); }
+  @keyframes dashmove { to { stroke-dashoffset: -20; } }
+
+  /* tooltip */
+  .tooltip {
+    position: fixed; z-index: 200; pointer-events: none;
+    background: var(--win-header); border: 1px solid var(--border-brt);
+    border-radius: 6px; padding: 0.55rem 0.75rem; max-width: 240px;
+    font-family: var(--mono); font-size: 0.76rem; color: var(--fg);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    opacity: 0; transition: opacity 0.12s;
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip .tt-name { color: var(--prompt); font-weight: 600; margin-bottom: 0.2rem; }
+  .tooltip .tt-desc { color: var(--muted); font-family: var(--sans); line-height: 1.4; }
+
+  /* detail panel */
+  .panel {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 1.1rem; min-height: 300px;
+  }
+  .panel-name { font-size: 1rem; font-weight: 700; color: var(--fg); }
+  .panel-sub { font-size: 0.75rem; color: var(--dim); margin-bottom: 0.15rem; }
+  .panel-role { font-size: 0.78rem; color: var(--cyan); margin: 0.3rem 0 0.9rem; }
+  .panel-what { font-size: 0.87rem; margin-bottom: 1rem; }
+  .panel-placeholder { color: var(--muted); font-family: var(--sans); font-size: 0.88rem; line-height: 1.7; }
+  .chip-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--mono); font-size: 0.74rem; color: var(--fg);
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-brt);
+    border-radius: 4px; padding: 0.35rem 0.65rem; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .chip:hover { border-color: var(--prompt); color: var(--prompt); }
+  .chip.open { background: rgba(74,222,128,0.1); border-color: var(--prompt); color: var(--prompt); }
+  .chip-panel { font-size: 0.85rem; color: var(--fg); padding-top: 0.25rem; }
+  .chip-panel[hidden] { display: none; }
+
+  /* narration bar */
+  .narration-bar {
+    margin-top: 1rem; background: var(--win-header);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.9rem 1.1rem;
+  }
+  .narration-controls { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
+  .nbtn {
+    font-family: var(--mono); font-size: 0.76rem; color: var(--fg);
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-brt);
+    border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;
+  }
+  .nbtn:hover { border-color: var(--prompt); color: var(--prompt); }
+  .nbtn.primary { color: var(--prompt); border-color: rgba(74,222,128,0.4); }
+  .step-count { font-size: 0.75rem; color: var(--dim); margin-left: auto; }
+  .narration-text { font-family: var(--sans); font-size: 0.92rem; color: var(--fg); line-height: 1.6; min-height: 2.6em; }
+
+  @media (max-width: 900px) {
+    .dive-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── RISKS TABLE ─────────────────────────────────────────────────── */
+  .risk-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  .risk-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border-brt); }
+  .risk-table td { padding: 0.75rem 0.9rem; border-bottom: 1px solid var(--border); font-family: var(--sans); color: var(--fg); vertical-align: top; }
+  .risk-table td:first-child { color: var(--fg); font-weight: 500; }
+  @media (max-width: 640px) {
+    .risk-table thead { display: none; }
+    .risk-table, .risk-table tbody, .risk-table tr, .risk-table td { display: block; width: 100%; }
+    .risk-table tr { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.75rem; padding: 0.5rem 0.25rem; }
+    .risk-table td { border-bottom: none; padding: 0.4rem 0.75rem; }
+    .risk-table td::before { content: attr(data-label); display: block; font-family: var(--mono); font-size: 0.7rem; color: var(--dim); margin-bottom: 0.2rem; }
+  }
+  .not-box {
+    margin-top: 1.5rem; font-size: 0.86rem; font-family: var(--sans);
+    color: var(--fg); background: rgba(240,136,62,0.05);
+    border-left: 2px solid var(--amber); padding: 0.9rem 1.1rem; line-height: 1.65; max-width: 62ch;
+  }
+  .not-box b { color: var(--amber); font-family: var(--mono); }
+
+  /* ── GLOSSARY ────────────────────────────────────────────────────── */
+  details.glossary summary {
+    cursor: pointer; font-size: 0.9rem; color: var(--prompt);
+    padding: 0.75rem 0; list-style: none; user-select: none;
+  }
+  details.glossary summary::-webkit-details-marker { display: none; }
+  details.glossary summary::before { content: '▸ '; }
+  details.glossary[open] summary::before { content: '▾ '; }
+  .glossary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem; margin-top: 0.75rem;
+  }
+  .g-term { font-size: 0.85rem; color: var(--fg); font-weight: 600; margin-bottom: 0.25rem; }
+  .g-def { font-family: var(--sans); font-size: 0.83rem; color: var(--muted); line-height: 1.55; }
+
+  /* ── FOOTER ──────────────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1.5rem; text-align: center;
+    font-size: 0.78rem; color: var(--dim);
+    display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;
+  }
+  footer a { color: var(--dim); text-decoration: none; }
+  footer a:hover { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="crumb"><a href="../index.html">~</a> / <a href="../index.html#projects">projects</a> / pipeline-surgeon-labs</div>
+    <nav class="topbar-links">
+      <a href="#diagram">diagram</a>
+      <a href="#risks">what could go wrong</a>
+      <a href="#glossary">glossary</a>
+    </nav>
+    <a href="../index.html" class="back-link">← back</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero-dive">
+  <div class="container">
+    <p class="section-comment">case study · pipeline-surgeon-labs</p>
+    <h1 class="tagline">A mechanic who diagnoses a broken build and proposes a fix — without touching the car.</h1>
+    <p class="lede prose">When a software build breaks, someone has to read pages of error logs to figure out why — usually at the worst possible time. This project reads the log itself, diagnoses the failure, and leaves a written repair proposal for a human to approve, never touching the code directly.</p>
+    <div class="callout">
+      <span class="callout-lbl"># by the numbers</span>
+      Across all six known test failures, this agent classified every one correctly — 100% accuracy — at about $0.05 and 21 seconds per run. It never merges anything itself; every proposed fix waits in a pull request for a human.
+    </div>
+    <div class="tags">
+      <span class="tag">Python</span>
+      <span class="tag">Claude API</span>
+      <span class="tag">LLM Tool Use</span>
+      <span class="tag">GitHub Actions</span>
+      <span class="tag">Maven</span>
+    </div>
+  </div>
+</section>
+
+<!-- IDEA WITHOUT JARGON -->
+<section id="idea">
+  <div class="container">
+    <p class="section-comment">the idea, without the jargon</p>
+    <h2 class="section-title"><span class="p">$</span> how to think about this</h2>
+    <div class="analogy prose">
+      <p>Picture a mechanic who reads your car's fault codes without popping the hood. They look at what the engine reported, work out what's actually wrong, and write it up on a clipboard — they don't start pulling parts.</p>
+      <p>Before writing anything down, they double-check the real part number instead of guessing from memory. A diagnosis built on a wrong part is worse than no diagnosis at all.</p>
+      <p>Then they leave the clipboard on the counter and walk away. They never touch the car. A person reads the note, decides whether the diagnosis makes sense, and only then picks up a wrench.</p>
+    </div>
+  </div>
+</section>
+
+<!-- DIAGRAM -->
+<section id="diagram" style="background:var(--bg2);">
+  <div class="container">
+    <p class="section-comment">how the pieces fit together</p>
+    <h2 class="section-title"><span class="p">$</span> walk a real build failure through the system</h2>
+
+    <div class="term-window">
+      <div class="term-titlebar">
+        <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
+        <div class="term-title">architecture.svg</div>
+      </div>
+      <div class="term-body">
+        <div class="dive-grid">
+
+          <div class="svg-wrap" id="svgWrap" tabindex="0" aria-label="Architecture diagram, use arrow keys to step through the flow">
+            <svg id="diagram" viewBox="0 0 900 640" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#2a4038"></path>
+                </marker>
+                <marker id="arrowActive" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#f0883e"></path>
+                </marker>
+                <filter id="nodeGlow" x="-40%" y="-40%" width="180%" height="180%">
+                  <feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur>
+                  <feMerge>
+                    <feMergeNode in="blur"></feMergeNode>
+                    <feMergeNode in="SourceGraphic"></feMergeNode>
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <!-- edges -->
+              <path class="edge" id="e-push-trigger" d="M150,80 L150,92"></path>
+              <path class="edge" id="e-trigger-redact" d="M150,156 L150,168"></path>
+              <path class="edge" id="e-redact-classify" d="M150,232 L150,244"></path>
+              <path class="edge" id="e-classify-maven" d="M260,264 C 420,264 420,232 560,232"></path>
+              <path class="edge" id="e-classify-source" d="M260,284 C 420,284 420,352 560,352"></path>
+              <path class="edge" id="e-classify-gate" d="M150,308 L150,320"></path>
+              <path class="edge" id="e-gate-patch" d="M150,384 L150,396"></path>
+              <path class="edge" id="e-patch-pr" d="M150,460 L150,472"></path>
+              <path class="edge" id="e-pr-human" d="M150,536 L150,548"></path>
+              <path class="edge" id="e-push-tests" d="M260,40 C 420,40 420,72 560,72"></path>
+
+              <!-- nodes: main pipeline -->
+              <g class="node" tabindex="0" role="button" data-key="push" aria-label="The failing build — git push, mvn package">
+                <rect x="40" y="16" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="42" text-anchor="middle">The failing build</text>
+                <text class="sub" x="150" y="60" text-anchor="middle">git push → mvn package</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="trigger" aria-label="Calling in the mechanic — GitHub Actions conditional step">
+                <rect x="40" y="92" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="118" text-anchor="middle">Calling in the mechanic</text>
+                <text class="sub" x="150" y="136" text-anchor="middle">GitHub Actions conditional step</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="redact" aria-label="The redactor — surgeon/redactor.py">
+                <rect x="40" y="168" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="194" text-anchor="middle">The redactor</text>
+                <text class="sub" x="150" y="212" text-anchor="middle">surgeon/redactor.py</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="classify" aria-label="The diagnosis — Claude tool-use API">
+                <rect x="40" y="244" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="270" text-anchor="middle">The diagnosis</text>
+                <text class="sub" x="150" y="288" text-anchor="middle">Claude tool-use API</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="gate" aria-label="The confidence gate — threshold check, default 0.6">
+                <rect x="40" y="320" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="346" text-anchor="middle">The confidence gate</text>
+                <text class="sub" x="150" y="364" text-anchor="middle">threshold check (default 0.6)</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="patch" aria-label="Drafting the repair — unified diff, local patch apply">
+                <rect x="40" y="396" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="422" text-anchor="middle">Drafting the repair</text>
+                <text class="sub" x="150" y="440" text-anchor="middle">unified diff + local patch</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="pr" aria-label="Opening the repair ticket — peter-evans/create-pull-request">
+                <rect x="40" y="472" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="498" text-anchor="middle">Opening the repair ticket</text>
+                <text class="sub" x="150" y="516" text-anchor="middle">create-pull-request action</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="human" aria-label="The human review — manual merge or reject">
+                <rect x="40" y="548" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="574" text-anchor="middle">The human review</text>
+                <text class="sub" x="150" y="592" text-anchor="middle">manual merge or reject</text>
+              </g>
+
+              <!-- nodes: support column -->
+              <g class="node" tabindex="0" role="button" data-key="tests" aria-label="The trust check — 6-fixture regression suite">
+                <rect x="560" y="16" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="42" text-anchor="middle">The trust check</text>
+                <text class="sub" x="670" y="60" text-anchor="middle">6-fixture regression suite</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="mavenTool" aria-label="Look up the real part — search_maven_central">
+                <rect x="560" y="200" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="226" text-anchor="middle">Look up the real part</text>
+                <text class="sub" x="670" y="244" text-anchor="middle">search_maven_central()</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="sourceTool" aria-label="Read the actual file — read_source_file">
+                <rect x="560" y="320" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="346" text-anchor="middle">Read the actual file</text>
+                <text class="sub" x="670" y="364" text-anchor="middle">read_source_file()</text>
+              </g>
+            </svg>
+          </div>
+
+          <div class="panel" id="panel">
+            <div class="panel-placeholder">Hover a box for a quick description, click one for the full detail, or press play below to walk through a real build failure.</div>
+          </div>
+
+        </div>
+
+        <div class="narration-bar">
+          <div class="narration-controls">
+            <button class="nbtn" id="resetBtn" title="Reset">⟲ reset</button>
+            <button class="nbtn" id="prevBtn" title="Previous step">⟨ prev</button>
+            <button class="nbtn primary" id="playBtn" title="Play / pause">▶ play</button>
+            <button class="nbtn" id="nextBtn" title="Next step">next ⟩</button>
+            <span class="step-count" id="stepCount">step 0 / 11</span>
+          </div>
+          <p class="narration-text" id="narrationText">Press play to walk a real build failure through the system, step by step.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RISKS -->
+<section id="risks">
+  <div class="container">
+    <p class="section-comment">what could go wrong</p>
+    <h2 class="section-title"><span class="p">$</span> failure modes, handled on purpose</h2>
+
+    <table class="risk-table">
+      <thead>
+        <tr><th>If this happens</th><th>What the system does</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-label="If this happens">The build log contains a real AWS key or GitHub token</td>
+          <td data-label="What the system does">The redactor strips it via pattern-matching before the log ever leaves the runner or reaches Claude.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">Claude isn't confident in its diagnosis (below 0.6)</td>
+          <td data-label="What the system does">The agent stops and opens a diagnostic pull request explaining why, instead of proposing a fix it doesn't trust.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">The proposed diff doesn't apply cleanly to the code</td>
+          <td data-label="What the system does">The patch step fails, the agent exits with an error, and no pull request claiming a fix ever opens.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">The agent hits its 5-round tool-use budget with no diagnosis</td>
+          <td data-label="What the system does">It returns a hard-coded "unknown" result at 0% confidence rather than looping forever or guessing.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">The classification or the fix is simply wrong</td>
+          <td data-label="What the system does">A human reviewing the pull request catches it — nothing merges to `main` without that review.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="not-box">
+      <b># what this project is not:</b> an autonomous CI fixer. It never commits to `main`, never retries a failed patch, and only recognises three Maven failure types — anything else comes back "unknown." Proven against six captured fixtures, not a large real-world sample.
+    </div>
+  </div>
+</section>
+
+<!-- GLOSSARY -->
+<section id="glossary" style="background:var(--bg2); padding-top:2rem; padding-bottom:3rem;">
+  <div class="container">
+    <details class="glossary">
+      <summary># glossary — 10 terms, click to expand</summary>
+      <div class="glossary-grid">
+        <div><div class="g-term">Maven</div><div class="g-def">A build tool for Java projects. When it fails, this whole system kicks in.</div></div>
+        <div><div class="g-term">Unified diff</div><div class="g-def">A standard text format showing exactly which lines changed, so a human can review a fix at a glance.</div></div>
+        <div><div class="g-term">Tool use (LLM)</div><div class="g-def">Letting an AI call a predefined function to get real data, instead of answering from memory alone.</div></div>
+        <div><div class="g-term">Confidence score</div><div class="g-def">A 0–1 number the model attaches to its own answer, used here to decide whether to trust it.</div></div>
+        <div><div class="g-term">Redaction</div><div class="g-def">Automatically blacking out things like passwords or API keys from text before it's sent anywhere.</div></div>
+        <div><div class="g-term">Pull request</div><div class="g-def">A proposed code change, visible and reviewable, that a human must approve before it becomes real.</div></div>
+        <div><div class="g-term">CI</div><div class="g-def">Continuous Integration — automatically building and testing code every time someone pushes a change.</div></div>
+        <div><div class="g-term">Fixture</div><div class="g-def">A saved, real example — here, a captured failing build log — used to test that software still behaves correctly.</div></div>
+        <div><div class="g-term">Token budget</div><div class="g-def">A hard cap on how much text an AI model can read or write in one run, used to control cost.</div></div>
+        <div><div class="g-term">Classification</div><div class="g-def">Sorting something into one of a fixed set of known categories — here, three failure types, or "unknown."</div></div>
+      </div>
+    </details>
+  </div>
+</section>
+
+<footer>
+  <a href="https://github.com/Kanim21/pipeline-surgeon-labs" target="_blank" rel="noopener">github ↗</a>
+  <a href="../index.html">← back to all projects</a>
+</footer>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-name" id="ttName"></div>
+  <div class="tt-desc" id="ttDesc"></div>
+</div>
+
+<script>
+  var NODES = {
+    push: {
+      plain: "The failing build", tech: "git push → mvn package", role: "Where the story starts",
+      tip: "A developer pushes code and the Maven build fails in CI.",
+      what: "A developer pushes code. The Maven build runs in CI and fails — this time on a dependency version conflict.",
+      why: "The whole system only exists because builds sometimes fail, and someone has to read the log.",
+      tradeoff: "It only reacts to Maven builds today. Extending the same pattern to npm or pip is planned but not built yet."
+    },
+    trigger: {
+      plain: "Calling in the mechanic", tech: "GitHub Actions conditional step", role: "Hands the log to the agent",
+      tip: "The workflow only wakes the agent when the build actually failed.",
+      what: "Because the build step failed, the workflow's next steps switch on and hand the raw build log to the surgeon agent.",
+      why: "Nothing runs — no API call, no cost — unless there's actually a failure to diagnose.",
+      tradeoff: "The agent only ever sees this one failing run's log. It has no memory of past builds or past fixes."
+    },
+    redact: {
+      plain: "The redactor", tech: "surgeon/redactor.py", role: "Strips secrets from the log",
+      tip: "Blacks out AWS keys, GitHub tokens, and credential URLs before anything leaves the runner.",
+      what: "Scans the raw build log for AWS keys, GitHub tokens, and credential-bearing URLs, and blacks them out before anything leaves the runner.",
+      why: "Build logs sometimes leak secrets by accident. Nothing should reach an external API unredacted.",
+      tradeoff: "It matches known secret patterns, not everything a secret could look like. A novel or oddly-formatted credential could still slip through."
+    },
+    classify: {
+      plain: "The diagnosis", tech: "Claude tool-use API", role: "Reads the log, names the failure",
+      tip: "Claude sorts the failure into one of three known types, using structured output.",
+      what: "Claude reads the redacted log and sorts the failure into one of three known types, or \"unknown\" if it can't tell.",
+      why: "A fault code the mechanic can act on beats a wall of raw log text — and forcing a fixed output shape keeps the result machine-checkable.",
+      tradeoff: "Only three failure types are recognised today. Anything else — a flaky test, an environment issue — comes back as \"unknown\" rather than a guess."
+    },
+    gate: {
+      plain: "The confidence gate", tech: "threshold check (default 0.6)", role: "Decides whether to trust the diagnosis",
+      tip: "Below the confidence threshold, the agent escalates instead of guessing.",
+      what: "If Claude's confidence score is below the threshold, or it has no fix to propose, the agent stops and escalates instead of guessing.",
+      why: "Testing across the fixture corpus showed compile errors typically score 0.90–0.92 — a threshold of 0.6 catches genuine uncertainty without false escalations.",
+      tradeoff: "The threshold is one fixed number for every failure type. A rarer failure class the corpus hasn't seen yet has no separate, more cautious bar."
+    },
+    patch: {
+      plain: "Drafting the repair", tech: "unified diff + local patch apply", role: "Writes the actual fix",
+      tip: "Claude writes a diff and the agent applies it locally — nothing pushed yet.",
+      what: "Claude writes the fix as a unified diff, and the agent applies it to a local, uncommitted working copy — nothing is pushed yet.",
+      why: "A diff is something a human can read and verify line by line, unlike a vague description of \"fix the dependency.\"",
+      tradeoff: "The agent only ever proposes one diff per run — no iterating, testing, or retrying if the patch doesn't quite apply."
+    },
+    pr: {
+      plain: "Opening the repair ticket", tech: "peter-evans/create-pull-request", role: "Where the fix becomes visible",
+      tip: "The fix goes out as a pull request on a new branch — main stays untouched.",
+      what: "The applied changes are pushed to a new branch and opened as a pull request — diagnosis, confidence score, and diff included, main untouched.",
+      why: "The original prototype auto-pushed straight to main. That's how a hallucinated dependency lands in production unreviewed — a PR keeps a person in the loop.",
+      tradeoff: "Every fix, even an obviously correct one, waits for a human. Slower than auto-merge, which is exactly the point."
+    },
+    human: {
+      plain: "The human review", tech: "manual merge or reject", role: "Where the real decision happens",
+      tip: "A person reads the diagnosis and diff, then decides what happens next.",
+      what: "A person reads the diagnosis and diff, and decides whether to merge it, request changes, or throw it away entirely.",
+      why: "Nothing this agent produces is trusted by default — including a high-confidence diagnosis. The merge button stays a human's.",
+      tradeoff: "The system doesn't learn from what gets merged versus rejected — every run starts from zero, with no memory of past human decisions."
+    },
+    tests: {
+      plain: "The trust check", tech: "6-fixture regression suite", role: "Proves the agent still works",
+      tip: "Six real captured failure logs are re-run through the classifier on every push.",
+      what: "Six real, captured build-failure logs — two per failure type — run through the classifier on every push, checking class, confidence, and target file all still match.",
+      why: "A diagnostic tool that silently gets worse is worse than one that's honestly untested. This is what backs up the 100% accuracy number.",
+      tradeoff: "Six fixtures across three classes is a real but small sample. A rarer or stranger failure shape than these six hasn't been proven yet."
+    },
+    mavenTool: {
+      plain: "Look up the real part", tech: "search_maven_central()", role: "Confirms a dependency's real coordinates",
+      tip: "A read-only lookup on Maven Central — never a guessed version number.",
+      what: "When the failure looks like a missing or conflicting dependency, Claude asks this tool for the top real matches on Maven Central instead of guessing a version.",
+      why: "The system prompt explicitly forbids inventing package names or versions — this tool is the one source of truth for what actually exists.",
+      tradeoff: "It's read-only, three results, ten-second timeout. If Maven Central is slow or the package is obscure, Claude gets a thin answer to work with."
+    },
+    sourceTool: {
+      plain: "Read the actual file", tech: "read_source_file()", role: "Confirms real code instead of guessing",
+      tip: "Returns up to 200 real lines of source, so Claude never invents code.",
+      what: "For a compile error, this tool returns up to 200 real lines from the file in question, so Claude reasons about actual code, not imagined code.",
+      why: "Same principle as the Maven lookup: never let the model hallucinate file contents it hasn't actually seen.",
+      tradeoff: "It refuses symlinks and anything outside the repo root — safe, but a failure caused by a file outside the checkout can't be inspected at all."
+    }
+  };
+
+  var STEPS = [
+    { node: "push", edge: null, text: "A developer pushes code. `mvn package` fails in CI — a version conflict on a shared dependency." },
+    { node: "trigger", edge: "e-push-trigger", text: "Because the build failed, the workflow calls in the mechanic: the surgeon agent, holding only the failing log." },
+    { node: "redact", edge: "e-trigger-redact", text: "Before anything leaves the runner, the log passes through the redactor — any stray key or token is blacked out first." },
+    { node: "classify", edge: "e-redact-classify", text: "The redacted log goes to Claude, which reads it like a fault code and classifies it: a version conflict." },
+    { node: "mavenTool", edge: "e-classify-maven", text: "To confirm the real fix, Claude calls the one tool that knows for sure: a live lookup on Maven Central, not a guess." },
+    { node: "sourceTool", edge: "e-classify-source", text: "For a different failure — a compile error — Claude would instead read the real source file, never imagined code." },
+    { node: "gate", edge: "e-classify-gate", text: "Confidence comes back at 0.97 — well above the 0.6 bar. The agent trusts this diagnosis and moves to a fix." },
+    { node: "patch", edge: "e-gate-patch", text: "Claude writes the fix as a diff. The agent applies it locally — nothing has reached `main` yet." },
+    { node: "pr", edge: "e-patch-pr", text: "The change is pushed to a new branch and opened as a pull request, diagnosis and diff attached." },
+    { node: "human", edge: "e-pr-human", text: "A person reads the reasoning and the diff, and decides: merge, request changes, or reject it outright." },
+    { node: "tests", edge: "e-push-tests", text: "None of this is taken on faith — six real fixture logs run through the same classifier on every push." }
+  ];
+
+  var nodeEls = {};
+  var edgeEls = {};
+  document.querySelectorAll('.node').forEach(function (el) { nodeEls[el.getAttribute('data-key')] = el; });
+  document.querySelectorAll('.edge').forEach(function (el) { edgeEls[el.id] = el; });
+
+  var panel = document.getElementById('panel');
+  var selectedKey = null;
+  var openChip = null;
+
+  function renderPanel(key) {
+    var d = NODES[key];
+    if (!d) return;
+    var html = '';
+    html += '<div class="panel-sub">' + d.tech + '</div>';
+    html += '<div class="panel-name">' + d.plain + '</div>';
+    html += '<div class="panel-role">' + d.role + '</div>';
+    html += '<div class="panel-what prose">' + d.what + '</div>';
+    html += '<div class="chip-row">';
+    html += '<button class="chip" data-chip="why">why it\'s there</button>';
+    html += '<button class="chip" data-chip="tradeoff">the tradeoff</button>';
+    html += '</div>';
+    html += '<div class="chip-panel prose" id="chipWhy" hidden>' + d.why + '</div>';
+    html += '<div class="chip-panel prose" id="chipTradeoff" hidden>' + d.tradeoff + '</div>';
+    panel.innerHTML = html;
+    openChip = null;
+
+    panel.querySelectorAll('.chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var which = btn.getAttribute('data-chip');
+        var whyPanel = document.getElementById('chipWhy');
+        var tPanel = document.getElementById('chipTradeoff');
+        var whyChip = panel.querySelector('[data-chip="why"]');
+        var tChip = panel.querySelector('[data-chip="tradeoff"]');
+        if (openChip === which) {
+          openChip = null;
+          whyPanel.hidden = true; tPanel.hidden = true;
+          whyChip.classList.remove('open'); tChip.classList.remove('open');
+          return;
+        }
+        openChip = which;
+        whyPanel.hidden = (which !== 'why');
+        tPanel.hidden = (which !== 'tradeoff');
+        whyChip.classList.toggle('open', which === 'why');
+        tChip.classList.toggle('open', which === 'tradeoff');
+      });
+    });
+  }
+
+  function selectNode(key) {
+    selectedKey = key;
+    renderPanel(key);
+  }
+
+  Object.keys(nodeEls).forEach(function (key) {
+    var el = nodeEls[key];
+    el.addEventListener('click', function () { selectNode(key); });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectNode(key); }
+    });
+    el.addEventListener('mouseenter', function (e) { showTooltip(e, key); });
+    el.addEventListener('mousemove', function (e) { moveTooltip(e); });
+    el.addEventListener('mouseleave', hideTooltip);
+  });
+
+  var tooltip = document.getElementById('tooltip');
+  var ttName = document.getElementById('ttName');
+  var ttDesc = document.getElementById('ttDesc');
+
+  function showTooltip(e, key) {
+    var d = NODES[key];
+    ttName.textContent = d.plain;
+    ttDesc.textContent = d.tip;
+    tooltip.classList.add('show');
+    moveTooltip(e);
+  }
+  function moveTooltip(e) {
+    var pad = 16;
+    var w = tooltip.offsetWidth || 240;
+    var h = tooltip.offsetHeight || 60;
+    var x = e.clientX + pad;
+    var y = e.clientY + pad;
+    if (x + w > window.innerWidth - 10) x = e.clientX - w - pad;
+    if (y + h > window.innerHeight - 10) y = e.clientY - h - pad;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+  function hideTooltip() { tooltip.classList.remove('show'); }
+
+  /* flow playback */
+  var stepIdx = -1;
+  var playing = false;
+  var playTimer = null;
+  var stepCountEl = document.getElementById('stepCount');
+  var narrationEl = document.getElementById('narrationText');
+
+  function clearHighlights() {
+    Object.keys(nodeEls).forEach(function (k) { nodeEls[k].classList.remove('active', 'dimmed'); });
+    Object.keys(edgeEls).forEach(function (k) { edgeEls[k].classList.remove('active'); });
+  }
+
+  function applyStep(i) {
+    if (i < 0 || i >= STEPS.length) return;
+    var s = STEPS[i];
+    clearHighlights();
+    Object.keys(nodeEls).forEach(function (k) {
+      if (k !== s.node) nodeEls[k].classList.add('dimmed');
+    });
+    nodeEls[s.node].classList.add('active');
+    if (s.edge && edgeEls[s.edge]) edgeEls[s.edge].classList.add('active');
+    narrationEl.textContent = s.text;
+    stepCountEl.textContent = 'step ' + (i + 1) + ' / ' + STEPS.length;
+    selectNode(s.node);
+  }
+
+  function resetFlow() {
+    stepIdx = -1;
+    stopPlay();
+    clearHighlights();
+    narrationEl.textContent = 'Press play to walk a real build failure through the system, step by step.';
+    stepCountEl.textContent = 'step 0 / ' + STEPS.length;
+  }
+
+  function nextStep() {
+    if (stepIdx >= STEPS.length - 1) { stopPlay(); return; }
+    stepIdx++;
+    applyStep(stepIdx);
+  }
+  function prevStep() {
+    if (stepIdx <= 0) return;
+    stepIdx--;
+    applyStep(stepIdx);
+  }
+  function startPlay() {
+    if (stepIdx >= STEPS.length - 1) stepIdx = -1;
+    playing = true;
+    document.getElementById('playBtn').textContent = '⏸ pause';
+    nextStep();
+    playTimer = setInterval(function () {
+      if (stepIdx >= STEPS.length - 1) { stopPlay(); return; }
+      nextStep();
+    }, 5000);
+  }
+  function stopPlay() {
+    playing = false;
+    document.getElementById('playBtn').textContent = '▶ play';
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  }
+
+  document.getElementById('playBtn').addEventListener('click', function () {
+    if (playing) stopPlay(); else startPlay();
+  });
+  document.getElementById('nextBtn').addEventListener('click', function () { stopPlay(); nextStep(); });
+  document.getElementById('prevBtn').addEventListener('click', function () { stopPlay(); prevStep(); });
+  document.getElementById('resetBtn').addEventListener('click', resetFlow);
+
+  document.getElementById('svgWrap').addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight') { e.preventDefault(); stopPlay(); nextStep(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); stopPlay(); prevStep(); }
+  });
+
+  resetFlow();
+</script>
+
+</body>
+</html>

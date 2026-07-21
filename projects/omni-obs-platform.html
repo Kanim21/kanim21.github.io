@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>omni-obs-platform — walkthrough</title>
+<meta name="description" content="An interactive walkthrough of omni-obs-platform: a federated observability stack across three simulated regions, with alerts tuned to only interrupt someone for real trouble." />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:          #0a0e0f;
+    --bg2:         #0c1112;
+    --win-bg:      #0f1517;
+    --win-header:  #131a1c;
+    --border:      #1d2b26;
+    --border-brt:  #2a4038;
+    --fg:          #d6e0dd;
+    --muted:       #6b7d76;
+    --dim:         #4a5c56;
+    --prompt:      #4ade80;
+    --green:       #3fb950;
+    --amber:       #f0883e;
+    --cyan:        #22d3ee;
+    --blue:        #58a6ff;
+    --purple:      #c9a0ff;
+    --red:         #ff5f56;
+    --yellow:      #ffbd2e;
+    --radius:      8px;
+    --mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', 'Fira Code',
+            Menlo, Consolas, 'Liberation Mono', monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.7;
+    overflow-x: hidden;
+    background-image:
+      radial-gradient(ellipse 70% 50% at 50% -10%, rgba(74,222,128,0.05) 0%, transparent 60%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
+  }
+
+  a { color: inherit; }
+
+  .prose {
+    font-family: var(--sans);
+    line-height: 1.7;
+    max-width: 62ch;
+    color: var(--fg);
+  }
+  .prose.dim { color: var(--muted); }
+
+  /* ── TOPBAR ──────────────────────────────────────────────────────── */
+  .topbar {
+    position: fixed; top: 0; width: 100%; z-index: 100;
+    background: rgba(10,14,15,0.9);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    max-width: 1080px; margin: 0 auto;
+    padding: 0 1.5rem;
+    height: 52px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem;
+  }
+  .crumb { font-size: 0.8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .crumb a { text-decoration: none; }
+  .crumb a:hover { color: var(--prompt); }
+  .topbar-links { display: flex; gap: 1.5rem; list-style: none; flex-shrink: 0; }
+  .topbar-links a {
+    color: var(--muted); text-decoration: none; font-size: 0.8rem;
+    transition: color 0.2s;
+  }
+  .topbar-links a:hover { color: var(--prompt); }
+  .back-link {
+    color: var(--prompt); text-decoration: none; font-size: 0.8rem; flex-shrink: 0;
+  }
+  @media (max-width: 720px) { .topbar-links { display: none; } }
+
+  /* ── SECTION SHARED ──────────────────────────────────────────────── */
+  section { padding: 4.25rem 1.5rem; }
+  .container { max-width: 1080px; margin: 0 auto; }
+  .section-comment { font-size: 0.82rem; color: var(--dim); margin-bottom: 0.6rem; }
+  .section-comment::before { content: '# '; }
+  .section-title {
+    font-size: clamp(1.3rem, 2.6vw, 1.7rem);
+    font-weight: 700; letter-spacing: -0.5px;
+    margin-bottom: 1.25rem;
+    display: flex; align-items: baseline; gap: 0.6rem;
+  }
+  .section-title .p { color: var(--prompt); font-size: 0.85em; }
+
+  /* ── HERO ────────────────────────────────────────────────────────── */
+  .hero-dive { padding-top: 6.5rem; }
+  .tagline {
+    font-size: clamp(1.4rem, 3.2vw, 2rem);
+    font-weight: 700; letter-spacing: -0.5px;
+    max-width: 34ch;
+    margin: 0.75rem 0 1.25rem;
+    line-height: 1.35;
+  }
+  .lede { margin-bottom: 1.5rem; font-size: 1rem; }
+  .callout {
+    font-size: 0.88rem; color: var(--fg);
+    font-family: var(--sans);
+    background: rgba(240,136,62,0.06);
+    border-left: 2px solid var(--amber);
+    padding: 0.85rem 1.1rem;
+    margin-bottom: 1.5rem;
+    max-width: 62ch;
+    line-height: 1.65;
+  }
+  .callout-lbl { color: var(--amber); font-family: var(--mono); font-size: 0.82rem; display: block; margin-bottom: 0.3rem; }
+  .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .tag {
+    font-size: 0.72rem; font-family: var(--mono);
+    padding: 0.15rem 0.5rem; border-radius: 4px;
+    background: rgba(34,211,238,0.07); color: var(--cyan);
+    border: 1px solid rgba(34,211,238,0.18);
+  }
+
+  /* ── ANALOGY ─────────────────────────────────────────────────────── */
+  .analogy {
+    border-left: 3px solid var(--border-brt);
+    padding-left: 1.5rem;
+  }
+  .analogy p { margin-bottom: 1.1rem; }
+  .analogy p:last-child { margin-bottom: 0; }
+
+  /* ── TERM WINDOW (reused chrome) ─────────────────────────────────── */
+  .term-window {
+    background: var(--win-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+  }
+  .term-titlebar {
+    background: var(--win-header);
+    border-bottom: 1px solid var(--border);
+    padding: 0.65rem 1rem;
+    display: flex; align-items: center; gap: 0.9rem;
+  }
+  .term-dots { display: flex; gap: 0.4rem; flex-shrink: 0; }
+  .term-dot { width: 11px; height: 11px; border-radius: 50%; }
+  .term-dot.red { background: var(--red); }
+  .term-dot.yellow { background: var(--yellow); }
+  .term-dot.green { background: var(--green); }
+  .term-title { font-size: 0.76rem; color: var(--muted); flex: 1; text-align: center; margin-right: 3.4rem; }
+  .term-body { padding: 1.5rem; }
+
+  /* ── DIAGRAM ─────────────────────────────────────────────────────── */
+  .dive-grid { display: grid; grid-template-columns: 1fr 320px; gap: 1.25rem; align-items: start; }
+  .svg-wrap { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 0.5rem; }
+  .svg-wrap:focus { outline: 1px solid var(--border-brt); }
+  svg#diagram { width: 100%; height: auto; display: block; }
+
+  .node rect { fill: var(--win-header); stroke: var(--border-brt); stroke-width: 1.25; transition: all 0.25s; }
+  .node .plain { fill: var(--fg); font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+  .node .sub { fill: var(--muted); font-family: var(--mono); font-size: 9.5px; }
+  .node { cursor: pointer; }
+  .node:hover rect { stroke: var(--prompt); }
+  .node.active rect { fill: rgba(240,136,62,0.14); stroke: var(--amber); stroke-width: 2; filter: url(#nodeGlow); }
+  .node.active .plain { fill: var(--amber); }
+  .node.dimmed { opacity: 0.32; }
+  .node:focus { outline: none; }
+  .node:focus rect { stroke: var(--cyan); stroke-width: 2; }
+
+  .edge { fill: none; stroke: var(--border-brt); stroke-width: 1.4; marker-end: url(#arrow); }
+  .edge.active { stroke: var(--amber); stroke-width: 2; stroke-dasharray: 6 4; animation: dashmove 0.6s linear infinite; marker-end: url(#arrowActive); }
+  @keyframes dashmove { to { stroke-dashoffset: -20; } }
+
+  /* tooltip */
+  .tooltip {
+    position: fixed; z-index: 200; pointer-events: none;
+    background: var(--win-header); border: 1px solid var(--border-brt);
+    border-radius: 6px; padding: 0.55rem 0.75rem; max-width: 240px;
+    font-family: var(--mono); font-size: 0.76rem; color: var(--fg);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    opacity: 0; transition: opacity 0.12s;
+  }
+  .tooltip.show { opacity: 1; }
+  .tooltip .tt-name { color: var(--prompt); font-weight: 600; margin-bottom: 0.2rem; }
+  .tooltip .tt-desc { color: var(--muted); font-family: var(--sans); line-height: 1.4; }
+
+  /* detail panel */
+  .panel {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 1.1rem; min-height: 300px;
+  }
+  .panel-name { font-size: 1rem; font-weight: 700; color: var(--fg); }
+  .panel-sub { font-size: 0.75rem; color: var(--dim); margin-bottom: 0.15rem; }
+  .panel-role { font-size: 0.78rem; color: var(--cyan); margin: 0.3rem 0 0.9rem; }
+  .panel-what { font-size: 0.87rem; margin-bottom: 1rem; }
+  .panel-placeholder { color: var(--muted); font-family: var(--sans); font-size: 0.88rem; line-height: 1.7; }
+  .chip-row { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--mono); font-size: 0.74rem; color: var(--fg);
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-brt);
+    border-radius: 4px; padding: 0.35rem 0.65rem; cursor: pointer;
+    transition: all 0.15s;
+  }
+  .chip:hover { border-color: var(--prompt); color: var(--prompt); }
+  .chip.open { background: rgba(74,222,128,0.1); border-color: var(--prompt); color: var(--prompt); }
+  .chip-panel { font-size: 0.85rem; color: var(--fg); padding-top: 0.25rem; }
+  .chip-panel[hidden] { display: none; }
+
+  /* narration bar */
+  .narration-bar {
+    margin-top: 1rem; background: var(--win-header);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 0.9rem 1.1rem;
+  }
+  .narration-controls { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; flex-wrap: wrap; }
+  .nbtn {
+    font-family: var(--mono); font-size: 0.76rem; color: var(--fg);
+    background: rgba(255,255,255,0.03); border: 1px solid var(--border-brt);
+    border-radius: 4px; padding: 0.35rem 0.7rem; cursor: pointer;
+  }
+  .nbtn:hover { border-color: var(--prompt); color: var(--prompt); }
+  .nbtn.primary { color: var(--prompt); border-color: rgba(74,222,128,0.4); }
+  .step-count { font-size: 0.75rem; color: var(--dim); margin-left: auto; }
+  .narration-text { font-family: var(--sans); font-size: 0.92rem; color: var(--fg); line-height: 1.6; min-height: 2.6em; }
+
+  @media (max-width: 900px) {
+    .dive-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── RISKS TABLE ─────────────────────────────────────────────────── */
+  .risk-table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  .risk-table th { text-align: left; color: var(--muted); font-weight: 600; padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--border-brt); }
+  .risk-table td { padding: 0.75rem 0.9rem; border-bottom: 1px solid var(--border); font-family: var(--sans); color: var(--fg); vertical-align: top; }
+  .risk-table td:first-child { color: var(--fg); font-weight: 500; }
+  @media (max-width: 640px) {
+    .risk-table thead { display: none; }
+    .risk-table, .risk-table tbody, .risk-table tr, .risk-table td { display: block; width: 100%; }
+    .risk-table tr { border: 1px solid var(--border); border-radius: 6px; margin-bottom: 0.75rem; padding: 0.5rem 0.25rem; }
+    .risk-table td { border-bottom: none; padding: 0.4rem 0.75rem; }
+    .risk-table td::before { content: attr(data-label); display: block; font-family: var(--mono); font-size: 0.7rem; color: var(--dim); margin-bottom: 0.2rem; }
+  }
+  .not-box {
+    margin-top: 1.5rem; font-size: 0.86rem; font-family: var(--sans);
+    color: var(--fg); background: rgba(240,136,62,0.05);
+    border-left: 2px solid var(--amber); padding: 0.9rem 1.1rem; line-height: 1.65; max-width: 62ch;
+  }
+  .not-box b { color: var(--amber); font-family: var(--mono); }
+
+  /* ── GLOSSARY ────────────────────────────────────────────────────── */
+  details.glossary summary {
+    cursor: pointer; font-size: 0.9rem; color: var(--prompt);
+    padding: 0.75rem 0; list-style: none; user-select: none;
+  }
+  details.glossary summary::-webkit-details-marker { display: none; }
+  details.glossary summary::before { content: '▸ '; }
+  details.glossary[open] summary::before { content: '▾ '; }
+  .glossary-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem; margin-top: 0.75rem;
+  }
+  .g-term { font-size: 0.85rem; color: var(--fg); font-weight: 600; margin-bottom: 0.25rem; }
+  .g-def { font-family: var(--sans); font-size: 0.83rem; color: var(--muted); line-height: 1.55; }
+
+  /* ── FOOTER ──────────────────────────────────────────────────────── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1.5rem; text-align: center;
+    font-size: 0.78rem; color: var(--dim);
+    display: flex; justify-content: center; gap: 1.5rem; flex-wrap: wrap;
+  }
+  footer a { color: var(--dim); text-decoration: none; }
+  footer a:hover { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="crumb"><a href="../index.html">~</a> / <a href="../index.html#projects">projects</a> / omni-obs-platform</div>
+    <nav class="topbar-links">
+      <a href="#diagram">diagram</a>
+      <a href="#risks">what could go wrong</a>
+      <a href="#glossary">glossary</a>
+    </nav>
+    <a href="../index.html" class="back-link">← back</a>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero-dive">
+  <div class="container">
+    <p class="section-comment">case study · omni-obs-platform</p>
+    <h1 class="tagline">Three simulated regions, one shared view — and an alarm that only rings when it should.</h1>
+    <p class="lede prose">Every region of a company's infrastructure produces its own flood of numbers, and normally nobody can see all of it in one place at once. This project builds that single place, and teaches it to stay quiet until a trend actually means trouble.</p>
+    <div class="callout">
+      <span class="callout-lbl"># the core idea</span>
+      This system doesn't promise zero failure — nobody can. It promises a <b style="color:var(--amber)">budget</b> for how much failure is acceptable, and watches how fast that budget is being spent. Open <b style="color:var(--amber)">the early-warning system</b> in the diagram below for how that actually works.
+    </div>
+    <div class="tags">
+      <span class="tag">OpenTelemetry</span>
+      <span class="tag">Prometheus</span>
+      <span class="tag">Thanos</span>
+      <span class="tag">Grafana</span>
+      <span class="tag">ArgoCD</span>
+      <span class="tag">Kustomize</span>
+      <span class="tag">kind</span>
+    </div>
+  </div>
+</section>
+
+<!-- IDEA WITHOUT JARGON -->
+<section id="idea">
+  <div class="container">
+    <p class="section-comment">the idea, without the jargon</p>
+    <h2 class="section-title"><span class="p">$</span> how to think about this</h2>
+    <div class="analogy prose">
+      <p>Picture a hospital's vital-signs monitors — one at every bed, in every ward, quietly measuring heart rate and blood pressure all day. Nobody expects a nurse to walk to every single bed to check on every patient every minute.</p>
+      <p>Instead, everything reports back to one central nurses' station. A screen there shows the whole ward at a glance, and — crucially — it doesn't beep for every tiny fluctuation. Some variation is normal; the station only raises an alarm when a trend actually looks dangerous.</p>
+      <p>This project builds that pattern for computer systems spread across three regions instead of three wards. Each region keeps working even if its line to the station drops, and the station combines all three into one screen, with alarms tuned to only interrupt someone for a trend that's actually burning through the failure the team agreed was acceptable.</p>
+    </div>
+  </div>
+</section>
+
+<!-- DIAGRAM -->
+<section id="diagram" style="background:var(--bg2);">
+  <div class="container">
+    <p class="section-comment">how the pieces fit together</p>
+    <h2 class="section-title"><span class="p">$</span> follow one metric from one region to the alarm</h2>
+
+    <div class="term-window">
+      <div class="term-titlebar">
+        <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
+        <div class="term-title">architecture.svg</div>
+      </div>
+      <div class="term-body">
+        <div class="dive-grid">
+
+          <div class="svg-wrap" id="svgWrap" tabindex="0" aria-label="Architecture diagram, use arrow keys to step through the flow">
+            <svg id="diagram" viewBox="0 0 900 640" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#2a4038"></path>
+                </marker>
+                <marker id="arrowActive" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                  <path d="M0,0 L10,5 L0,10 z" fill="#f0883e"></path>
+                </marker>
+                <filter id="nodeGlow" x="-40%" y="-40%" width="180%" height="180%">
+                  <feGaussianBlur stdDeviation="5" result="blur"></feGaussianBlur>
+                  <feMerge>
+                    <feMergeNode in="blur"></feMergeNode>
+                    <feMergeNode in="SourceGraphic"></feMergeNode>
+                  </feMerge>
+                </filter>
+              </defs>
+
+              <!-- edges -->
+              <path class="edge" id="e-kindclusters-telemetrygen" d="M150,80 L150,104"></path>
+              <path class="edge" id="e-telemetrygen-otelcollector" d="M150,168 L150,192"></path>
+              <path class="edge" id="e-otelcollector-prometheus" d="M150,256 L150,280"></path>
+              <path class="edge" id="e-prometheus-sidecar" d="M150,344 L150,368"></path>
+              <path class="edge" id="e-sidecar-minio" d="M260,400 C 420,400 420,48 560,48"></path>
+              <path class="edge" id="e-sidecar-thanosquery" d="M150,432 L150,456"></path>
+              <path class="edge" id="e-thanosquery-grafana" d="M150,520 L150,544"></path>
+              <path class="edge" id="e-thanosquery-alertrules" d="M260,488 C 420,488 420,172 560,172"></path>
+              <path class="edge" id="e-kustomize-argocd" d="M670,328 L670,368"></path>
+              <path class="edge" id="e-argocd-kindclusters" d="M560,400 C 400,400 400,48 260,48"></path>
+
+              <!-- nodes: main column -->
+              <g class="node" tabindex="0" role="button" data-key="kindclusters" aria-label="The three regions — kind clusters, aws azure gcp">
+                <rect x="40" y="16" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="42" text-anchor="middle">The three regions</text>
+                <text class="sub" x="150" y="60" text-anchor="middle">kind clusters — aws · azure · gcp</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="telemetrygen" aria-label="The vital-signs source — telemetrygen load generator">
+                <rect x="40" y="104" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="130" text-anchor="middle">The vital-signs source</text>
+                <text class="sub" x="150" y="148" text-anchor="middle">telemetrygen load generator</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="otelcollector" aria-label="The bedside monitor — OpenTelemetry Collector">
+                <rect x="40" y="192" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="218" text-anchor="middle">The bedside monitor</text>
+                <text class="sub" x="150" y="236" text-anchor="middle">OpenTelemetry Collector</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="prometheus" aria-label="The regional chart — Prometheus, 2 hour retention">
+                <rect x="40" y="280" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="306" text-anchor="middle">The regional chart</text>
+                <text class="sub" x="150" y="324" text-anchor="middle">Prometheus — 2h retention</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="sidecar" aria-label="The direct line — Thanos Sidecar StoreAPI">
+                <rect x="40" y="368" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="394" text-anchor="middle">The direct line</text>
+                <text class="sub" x="150" y="412" text-anchor="middle">Thanos Sidecar — StoreAPI</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="thanosquery" aria-label="The nurses' station — Thanos Query federated view">
+                <rect x="40" y="456" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="482" text-anchor="middle">The nurses' station</text>
+                <text class="sub" x="150" y="500" text-anchor="middle">Thanos Query — federated view</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="grafana" aria-label="The wall display — Grafana dashboards">
+                <rect x="40" y="544" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="150" y="570" text-anchor="middle">The wall display</text>
+                <text class="sub" x="150" y="588" text-anchor="middle">Grafana dashboards</text>
+              </g>
+
+              <!-- nodes: support column -->
+              <g class="node" tabindex="0" role="button" data-key="minio" aria-label="The long-term archive — MinIO object storage">
+                <rect x="560" y="16" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="42" text-anchor="middle">The long-term archive</text>
+                <text class="sub" x="670" y="60" text-anchor="middle">MinIO object storage</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="alertrules" aria-label="The early-warning system — SLO burn-rate alert rules">
+                <rect x="560" y="140" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="166" text-anchor="middle">The early-warning system</text>
+                <text class="sub" x="670" y="184" text-anchor="middle">SLO burn-rate alert rules</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="kustomize" aria-label="The shared blueprint — Kustomize base plus components plus overlays">
+                <rect x="560" y="264" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="290" text-anchor="middle">The shared blueprint</text>
+                <text class="sub" x="670" y="308" text-anchor="middle">Kustomize — base + overlays</text>
+              </g>
+
+              <g class="node" tabindex="0" role="button" data-key="argocd" aria-label="The ward's autopilot — ArgoCD GitOps controller">
+                <rect x="560" y="368" width="220" height="64" rx="8"></rect>
+                <text class="plain" x="670" y="394" text-anchor="middle">The ward's autopilot</text>
+                <text class="sub" x="670" y="412" text-anchor="middle">ArgoCD — GitOps controller</text>
+              </g>
+            </svg>
+          </div>
+
+          <div class="panel" id="panel">
+            <div class="panel-placeholder">Hover a box for a quick description, click one for the full detail, or press play below to follow one metric from source to alarm.</div>
+          </div>
+
+        </div>
+
+        <div class="narration-bar">
+          <div class="narration-controls">
+            <button class="nbtn" id="resetBtn" title="Reset">⟲ reset</button>
+            <button class="nbtn" id="prevBtn" title="Previous step">⟨ prev</button>
+            <button class="nbtn primary" id="playBtn" title="Play / pause">▶ play</button>
+            <button class="nbtn" id="nextBtn" title="Next step">next ⟩</button>
+            <span class="step-count" id="stepCount">step 0 / 12</span>
+          </div>
+          <p class="narration-text" id="narrationText">Press play to follow one metric from a single region all the way to an alarm decision.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RISKS -->
+<section id="risks">
+  <div class="container">
+    <p class="section-comment">what could go wrong</p>
+    <h2 class="section-title"><span class="p">$</span> failure modes, handled on purpose</h2>
+
+    <table class="risk-table">
+      <thead>
+        <tr><th>If this happens</th><th>What the system does</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td data-label="If this happens">One region's connection to the central station goes down</td>
+          <td data-label="What the system does">That region keeps collecting and storing locally on its own — nothing is lost, only the merged view is briefly missing that region.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">Errors climb fast, burning the failure budget at 14.4× the normal rate</td>
+          <td data-label="What the system does">A page fires within minutes, pointing straight at a written runbook with the likely cause and severity.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">Errors climb slowly over hours instead of spiking</td>
+          <td data-label="What the system does">A lower-urgency ticket fires instead of a page — same problem, not urgent enough to wake anyone at 3am.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">The central query service gets overwhelmed by a very large question</td>
+          <td data-label="What the system does">It can run out of memory and restart — the documented fix is raising its memory limit, not silently failing forever.</td>
+        </tr>
+        <tr>
+          <td data-label="If this happens">Someone edits the live cluster by hand instead of the git repo</td>
+          <td data-label="What the system does">The GitOps controller notices the drift and quietly reverts it back to whatever the repository says should be running.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="not-box">
+      <b># what this project is not:</b> a production observability platform. All three regions run on one laptop's Docker engine, the traffic is synthetic, only two hours of history is kept without extra storage wired in, and Grafana's login is a shared demo password, not a real identity system.
+    </div>
+  </div>
+</section>
+
+<!-- GLOSSARY -->
+<section id="glossary" style="background:var(--bg2); padding-top:2rem; padding-bottom:3rem;">
+  <div class="container">
+    <details class="glossary">
+      <summary># glossary — 10 terms, click to expand</summary>
+      <div class="glossary-grid">
+        <div><div class="g-term">OTLP</div><div class="g-def">The common data format most modern monitoring tools use to send metrics, so a collector doesn't need custom code per app.</div></div>
+        <div><div class="g-term">SLO</div><div class="g-def">A Service Level Objective — a target for how reliable something should be, agreed on in advance, not decided after an incident.</div></div>
+        <div><div class="g-term">Error budget</div><div class="g-def">The small amount of allowed failure inside an SLO — 99.9% reliable leaves a 0.1% budget to spend before anyone panics.</div></div>
+        <div><div class="g-term">Burn rate</div><div class="g-def">How fast that failure budget is being spent right now, compared to a steady, sustainable pace.</div></div>
+        <div><div class="g-term">GitOps</div><div class="g-def">A way of running infrastructure where the git repository is the plan, and a robot continuously makes the real system match it.</div></div>
+        <div><div class="g-term">Federation</div><div class="g-def">Combining data from several independent systems into one unified view, without merging the systems themselves.</div></div>
+        <div><div class="g-term">Kustomize</div><div class="g-def">A tool for describing infrastructure once, then layering small, explicit differences on top for each place it runs.</div></div>
+        <div><div class="g-term">Sidecar</div><div class="g-def">A helper process that runs alongside a main one, handling a side task — here, exposing data to the outside world.</div></div>
+        <div><div class="g-term">Object storage</div><div class="g-def">Cheap, durable storage for large files or data blocks — used for long-term history instead of a live database.</div></div>
+        <div><div class="g-term">Reconciliation</div><div class="g-def">Comparing the real, running state of a system against the intended state, and fixing any difference found.</div></div>
+      </div>
+    </details>
+  </div>
+</section>
+
+<footer>
+  <a href="https://github.com/Kanim21/omni-obs-platform" target="_blank" rel="noopener">github ↗</a>
+  <a href="../index.html">← back to all projects</a>
+</footer>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-name" id="ttName"></div>
+  <div class="tt-desc" id="ttDesc"></div>
+</div>
+
+<script>
+  var NODES = {
+    kindclusters: {
+      plain: "The three regions", tech: "kind clusters — aws · azure · gcp", role: "The simulated regions",
+      tip: "Three local clusters stand in for three real cloud regions, plus a control room.",
+      what: "Three separate local clusters stand in for three real cloud regions, each running the same pipeline independently, plus one more cluster acting as the control room.",
+      why: "Real multi-region platforms genuinely run isolated per-region stacks. Simulating that with separate local clusters, instead of one shared cluster, makes the demo prove the real pattern.",
+      tradeoff: "All four clusters run on one laptop's Docker engine. Realistic in topology, but not in real network distance, latency, or the failure modes an actual WAN introduces."
+    },
+    telemetrygen: {
+      plain: "The vital-signs source", tech: "telemetrygen load generator", role: "Where a metric begins",
+      tip: "Emits realistic fake metrics so the pipeline has something real to carry.",
+      what: "A small program that emits realistic, fake metrics — request counts, latencies, errors — so the whole pipeline has something to carry, without needing a real production app.",
+      why: "Testing a monitoring pipeline needs traffic. A generator produces steady, adjustable load so the whole system can be verified end-to-end, on demand.",
+      tradeoff: "It's synthetic — the shapes and volumes are realistic, but real production traffic is messier and less predictable than a generator produces."
+    },
+    otelcollector: {
+      plain: "The bedside monitor", tech: "OpenTelemetry Collector", role: "First stop for every metric",
+      tip: "Translates the incoming metric format into one Prometheus can scrape.",
+      what: "Receives metrics in the OTLP format and re-exposes them as a Prometheus-scrapable endpoint — the translator between what an app speaks and what the chart understands.",
+      why: "OTLP is the standard most tools now speak, but Prometheus wants to pull data its own way. The collector bridges the two without the app needing to know.",
+      tradeoff: "It's one more hop in the pipeline. The collector is worth it exactly because it decouples app instrumentation from whatever storage tool is chosen later."
+    },
+    prometheus: {
+      plain: "The regional chart", tech: "Prometheus — 2h retention", role: "Local, short-term storage",
+      tip: "Stores this region's metrics, but keeps only two hours on purpose.",
+      what: "Scrapes and stores this region's metrics — but on purpose, keeps only two hours of history, deferring anything longer-term to a separate piece.",
+      why: "Each region should keep working — collecting and alerting locally — even if the connection to the control room drops entirely.",
+      tradeoff: "Two hours of retention with no built-in long-term storage is a deliberate scope cut for the demo, documented in an ADR — a real deployment ships blocks for real history."
+    },
+    sidecar: {
+      plain: "The direct line", tech: "Thanos Sidecar — StoreAPI", role: "The bridge to the center",
+      tip: "Lets the center ask this region questions without constant pushing.",
+      what: "Exposes this region's chart to the center over a lightweight protocol, so the center can ask questions without the region constantly pushing its whole history over the network.",
+      why: "Pushing every sample to the center constantly wastes bandwidth and puts the center in the critical path for every write. Pull-on-query avoids both.",
+      tradeoff: "If the network to one region is slow, only queries touching that region get slow — chosen deliberately over the alternative pattern for a small number of long-lived regions."
+    },
+    minio: {
+      plain: "The long-term archive", tech: "MinIO object storage", role: "Where history survives",
+      tip: "Archives blocks past the two-hour local window.",
+      what: "Stores metric blocks past the two-hour local window, standing in for a cloud object store like S3 in a real deployment.",
+      why: "Two hours of history isn't enough to investigate most real incidents. Somewhere durable needs to hold the rest.",
+      tradeoff: "This was deliberately left out of the original design to keep the core federation demo simple, then added back for this walkthrough — a real deployment needs a managed, replicated store, not one local container."
+    },
+    thanosquery: {
+      plain: "The nurses' station", tech: "Thanos Query — federated view", role: "Where everything converges",
+      tip: "Merges every region's data into one unified, deduplicated view.",
+      what: "Asks every region's direct line for data at once and merges the answers into one unified view, as if it all lived in one place.",
+      why: "Nobody wants to check three separate dashboards to understand one system. This is what makes 'one query, every region' possible.",
+      tradeoff: "A slow or unreachable region can slow down every query that touches it unless it's dropped quickly — tuned by a timeout setting a runbook calls out directly."
+    },
+    grafana: {
+      plain: "The wall display", tech: "Grafana dashboards", role: "What a human actually looks at",
+      tip: "Turns merged metrics into charts anyone can read at a glance.",
+      what: "Turns the merged view into charts anyone can read, without needing to know which region a given metric actually came from.",
+      why: "Raw metrics aren't useful to a person under pressure. A dashboard turns numbers into a shape you can recognize at a glance.",
+      tradeoff: "Demo login is a fixed default password. A real deployment would put a real identity system in front of it, not a shared admin account."
+    },
+    alertrules: {
+      plain: "The early-warning system", tech: "SLO burn-rate alert rules", role: "Decides when to wake someone",
+      tip: "Fires at two speeds: a fast page, and a slow ticket.",
+      what: "Watches how fast the 'acceptable failure' budget is being spent, and fires at two speeds — a fast burn that pages someone now, a slow burn that opens a ticket.",
+      why: "Not every blip deserves a 3am page. Separating a fast, severe burn from a slow, chronic one means people are only woken for failures that truly can't wait.",
+      tradeoff: "Getting the two thresholds right is genuinely hard — too sensitive and people stop trusting pages, too loose and real incidents get missed. These numbers (14.4× and 6×) come from a well-known industry pattern, not guesswork."
+    },
+    kustomize: {
+      plain: "The shared blueprint", tech: "Kustomize — base + components + overlays", role: "One template, several regions",
+      tip: "One shared template, with small explicit differences layered per region.",
+      what: "Defines the pipeline once as a shared template, then layers small, explicit differences per region — instead of maintaining three nearly-identical copies by hand.",
+      why: "Three regions with copy-pasted configs drift apart over time. One shared base means a fix or an upgrade only has to happen in one place.",
+      tradeoff: "It's an extra layer to learn — reading 'what will actually run' means mentally composing the base and the overlay, not just reading one file top to bottom."
+    },
+    argocd: {
+      plain: "The ward's autopilot", tech: "ArgoCD — GitOps controller", role: "Keeps reality matching the plan",
+      tip: "Continuously reapplies the git-defined state to the live clusters.",
+      what: "Continuously compares the running cluster against what's committed in the git repository, and reapplies anything that's drifted, without a person running a deploy command.",
+      why: "If the only source of truth is a repo, not someone's laptop history, anyone can see exactly what's supposed to be running and why.",
+      tradeoff: "In this demo it polls every few minutes rather than reacting instantly to a push — a real setup would add a webhook so changes land in seconds, not minutes."
+    }
+  };
+
+  var STEPS = [
+    { node: "kindclusters", edge: null, text: "Picture three separate simulated cloud regions plus one more cluster acting as the control room — that's the whole stage for this walkthrough." },
+    { node: "telemetrygen", edge: "e-kindclusters-telemetrygen", text: "A simulated application in one region emits a stream of metrics over OTLP, the standard format most modern monitoring tools speak." },
+    { node: "otelcollector", edge: "e-telemetrygen-otelcollector", text: "The bedside monitor for that region receives the stream and re-exposes it in the format the next tool understands: Prometheus." },
+    { node: "prometheus", edge: "e-otelcollector-prometheus", text: "The regional chart scrapes and stores those metrics locally — but only keeps two hours of history by design." },
+    { node: "sidecar", edge: "e-prometheus-sidecar", text: "A sidecar opens a direct line from this region straight to the control room, without shipping every sample over the network." },
+    { node: "minio", edge: "e-sidecar-minio", text: "Blocks of older data are also archived to long-term storage here, so history survives past that two-hour local window." },
+    { node: "thanosquery", edge: "e-sidecar-thanosquery", text: "The control room asks every region's direct line for data at once and merges the answers into one view." },
+    { node: "grafana", edge: "e-thanosquery-grafana", text: "That merged view is drawn onto a dashboard anyone can check — one screen, regardless of which region a metric came from." },
+    { node: "alertrules", edge: "e-thanosquery-alertrules", text: "In the background, a rule compares how fast the team's failure budget is being spent, at a fast pace and a slow one." },
+    { node: "kustomize", edge: null, text: "None of what you just saw was clicked into place by hand. It starts as one shared template, with small differences layered on per region." },
+    { node: "argocd", edge: "e-kustomize-argocd", text: "A controller continuously compares that template against the git repository and pushes any difference straight into the live clusters." },
+    { node: "kindclusters", edge: "e-argocd-kindclusters", text: "The moment reality drifts from that plan, the controller quietly puts it back — closing the loop right where we started." }
+  ];
+
+  var nodeEls = {};
+  var edgeEls = {};
+  document.querySelectorAll('.node').forEach(function (el) { nodeEls[el.getAttribute('data-key')] = el; });
+  document.querySelectorAll('.edge').forEach(function (el) { edgeEls[el.id] = el; });
+
+  var panel = document.getElementById('panel');
+  var selectedKey = null;
+  var openChip = null;
+
+  function renderPanel(key) {
+    var d = NODES[key];
+    if (!d) return;
+    var html = '';
+    html += '<div class="panel-sub">' + d.tech + '</div>';
+    html += '<div class="panel-name">' + d.plain + '</div>';
+    html += '<div class="panel-role">' + d.role + '</div>';
+    html += '<div class="panel-what prose">' + d.what + '</div>';
+    html += '<div class="chip-row">';
+    html += '<button class="chip" data-chip="why">why it\'s there</button>';
+    html += '<button class="chip" data-chip="tradeoff">the tradeoff</button>';
+    html += '</div>';
+    html += '<div class="chip-panel prose" id="chipWhy" hidden>' + d.why + '</div>';
+    html += '<div class="chip-panel prose" id="chipTradeoff" hidden>' + d.tradeoff + '</div>';
+    panel.innerHTML = html;
+    openChip = null;
+
+    panel.querySelectorAll('.chip').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var which = btn.getAttribute('data-chip');
+        var whyPanel = document.getElementById('chipWhy');
+        var tPanel = document.getElementById('chipTradeoff');
+        var whyChip = panel.querySelector('[data-chip="why"]');
+        var tChip = panel.querySelector('[data-chip="tradeoff"]');
+        if (openChip === which) {
+          openChip = null;
+          whyPanel.hidden = true; tPanel.hidden = true;
+          whyChip.classList.remove('open'); tChip.classList.remove('open');
+          return;
+        }
+        openChip = which;
+        whyPanel.hidden = (which !== 'why');
+        tPanel.hidden = (which !== 'tradeoff');
+        whyChip.classList.toggle('open', which === 'why');
+        tChip.classList.toggle('open', which === 'tradeoff');
+      });
+    });
+  }
+
+  function selectNode(key) {
+    selectedKey = key;
+    renderPanel(key);
+  }
+
+  Object.keys(nodeEls).forEach(function (key) {
+    var el = nodeEls[key];
+    el.addEventListener('click', function () { selectNode(key); });
+    el.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectNode(key); }
+    });
+    el.addEventListener('mouseenter', function (e) { showTooltip(e, key); });
+    el.addEventListener('mousemove', function (e) { moveTooltip(e); });
+    el.addEventListener('mouseleave', hideTooltip);
+  });
+
+  var tooltip = document.getElementById('tooltip');
+  var ttName = document.getElementById('ttName');
+  var ttDesc = document.getElementById('ttDesc');
+
+  function showTooltip(e, key) {
+    var d = NODES[key];
+    ttName.textContent = d.plain;
+    ttDesc.textContent = d.tip;
+    tooltip.classList.add('show');
+    moveTooltip(e);
+  }
+  function moveTooltip(e) {
+    var pad = 16;
+    var w = tooltip.offsetWidth || 240;
+    var h = tooltip.offsetHeight || 60;
+    var x = e.clientX + pad;
+    var y = e.clientY + pad;
+    if (x + w > window.innerWidth - 10) x = e.clientX - w - pad;
+    if (y + h > window.innerHeight - 10) y = e.clientY - h - pad;
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  }
+  function hideTooltip() { tooltip.classList.remove('show'); }
+
+  /* flow playback */
+  var stepIdx = -1;
+  var playing = false;
+  var playTimer = null;
+  var stepCountEl = document.getElementById('stepCount');
+  var narrationEl = document.getElementById('narrationText');
+
+  function clearHighlights() {
+    Object.keys(nodeEls).forEach(function (k) { nodeEls[k].classList.remove('active', 'dimmed'); });
+    Object.keys(edgeEls).forEach(function (k) { edgeEls[k].classList.remove('active'); });
+  }
+
+  function applyStep(i) {
+    if (i < 0 || i >= STEPS.length) return;
+    var s = STEPS[i];
+    clearHighlights();
+    Object.keys(nodeEls).forEach(function (k) {
+      if (k !== s.node) nodeEls[k].classList.add('dimmed');
+    });
+    nodeEls[s.node].classList.add('active');
+    if (s.edge && edgeEls[s.edge]) edgeEls[s.edge].classList.add('active');
+    narrationEl.textContent = s.text;
+    stepCountEl.textContent = 'step ' + (i + 1) + ' / ' + STEPS.length;
+    selectNode(s.node);
+  }
+
+  function resetFlow() {
+    stepIdx = -1;
+    stopPlay();
+    clearHighlights();
+    narrationEl.textContent = 'Press play to follow one metric from a single region all the way to an alarm decision.';
+    stepCountEl.textContent = 'step 0 / ' + STEPS.length;
+  }
+
+  function nextStep() {
+    if (stepIdx >= STEPS.length - 1) { stopPlay(); return; }
+    stepIdx++;
+    applyStep(stepIdx);
+  }
+  function prevStep() {
+    if (stepIdx <= 0) return;
+    stepIdx--;
+    applyStep(stepIdx);
+  }
+  function startPlay() {
+    if (stepIdx >= STEPS.length - 1) stepIdx = -1;
+    playing = true;
+    document.getElementById('playBtn').textContent = '⏸ pause';
+    nextStep();
+    playTimer = setInterval(function () {
+      if (stepIdx >= STEPS.length - 1) { stopPlay(); return; }
+      nextStep();
+    }, 5000);
+  }
+  function stopPlay() {
+    playing = false;
+    document.getElementById('playBtn').textContent = '▶ play';
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+  }
+
+  document.getElementById('playBtn').addEventListener('click', function () {
+    if (playing) stopPlay(); else startPlay();
+  });
+  document.getElementById('nextBtn').addEventListener('click', function () { stopPlay(); nextStep(); });
+  document.getElementById('prevBtn').addEventListener('click', function () { stopPlay(); prevStep(); });
+  document.getElementById('resetBtn').addEventListener('click', resetFlow);
+
+  document.getElementById('svgWrap').addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowRight') { e.preventDefault(); stopPlay(); nextStep(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); stopPlay(); prevStep(); }
+  });
+
+  resetFlow();
+</script>
+
+</body>
+</html>
