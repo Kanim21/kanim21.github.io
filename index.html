@@ -3,321 +3,264 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kingsley Anim — Platform Engineer</title>
-  <meta name="description" content="Platform Engineer specialising in cloud infrastructure, Kubernetes, observability, and AI-powered automation." />
+  <title>kingsley-anim ~ platform / sre / ai-infra engineer</title>
+  <meta name="description" content="Platform Engineer specialising in cloud infrastructure, Kubernetes, observability, network automation, and AI-powered multi-agent systems." />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #080d18;
-      --bg2:       #0f1623;
-      --card:      #131c2e;
-      --border:    #1e2d47;
-      --accent:    #3b82f6;
-      --accent2:   #06b6d4;
-      --green:     #10b981;
-      --orange:    #f59e0b;
-      --purple:    #8b5cf6;
-      --text:      #e2e8f0;
-      --muted:     #64748b;
-      --radius:    12px;
+      --bg:          #0a0e0f;
+      --bg2:         #0c1112;
+      --win-bg:      #0f1517;
+      --win-header:  #131a1c;
+      --border:      #1d2b26;
+      --border-brt:  #2a4038;
+      --fg:          #d6e0dd;
+      --muted:       #6b7d76;
+      --dim:         #4a5c56;
+      --prompt:      #4ade80;
+      --green:       #3fb950;
+      --amber:       #f0883e;
+      --cyan:        #22d3ee;
+      --blue:        #58a6ff;
+      --purple:      #c9a0ff;
+      --red:         #ff5f56;
+      --yellow:      #ffbd2e;
+      --radius:      8px;
+      --mono: ui-monospace, 'SFMono-Regular', 'JetBrains Mono', 'Fira Code',
+              Menlo, Consolas, 'Liberation Mono', monospace;
     }
 
     html { scroll-behavior: smooth; }
 
     body {
       background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-      line-height: 1.6;
+      color: var(--fg);
+      font-family: var(--mono);
+      font-size: 15px;
+      line-height: 1.7;
       overflow-x: hidden;
+      background-image:
+        radial-gradient(ellipse 70% 50% at 50% -10%, rgba(74,222,128,0.05) 0%, transparent 60%),
+        repeating-linear-gradient(0deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px);
     }
+
+    a { color: inherit; }
 
     /* ── NAV ─────────────────────────────────────────────────────────── */
     nav {
       position: fixed; top: 0; width: 100%; z-index: 100;
-      background: rgba(8,13,24,0.85);
-      backdrop-filter: blur(12px);
+      background: rgba(10,14,15,0.88);
+      backdrop-filter: blur(10px);
       border-bottom: 1px solid var(--border);
     }
     .nav-inner {
-      max-width: 1100px; margin: 0 auto;
+      max-width: 1080px; margin: 0 auto;
       padding: 0 1.5rem;
-      height: 60px;
+      height: 52px;
       display: flex; align-items: center; justify-content: space-between;
     }
     .logo {
-      font-size: 1.15rem; font-weight: 700; letter-spacing: -0.5px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      font-size: 0.88rem; font-weight: 600;
+      color: var(--fg);
       text-decoration: none;
+      display: flex; align-items: center; gap: 0.5rem;
     }
-    .nav-links { display: flex; gap: 2rem; list-style: none; }
+    .logo .prompt-char { color: var(--prompt); }
+    .nav-links { display: flex; gap: 1.75rem; list-style: none; }
     .nav-links a {
-      color: var(--muted); text-decoration: none; font-size: 0.9rem;
+      color: var(--muted); text-decoration: none; font-size: 0.83rem;
       transition: color 0.2s;
     }
-    .nav-links a:hover { color: var(--text); }
+    .nav-links a:hover { color: var(--prompt); }
+
+    /* ── TERMINAL WINDOW CHROME ─────────────────────────────────────── */
+    .term-window {
+      background: var(--win-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      position: relative;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+    }
+    .term-window::before,
+    .term-window::after { display: none; }
+    .term-titlebar {
+      background: var(--win-header);
+      border-bottom: 1px solid var(--border);
+      padding: 0.65rem 1rem;
+      display: flex; align-items: center; gap: 0.9rem;
+    }
+    .term-dots { display: flex; gap: 0.4rem; flex-shrink: 0; }
+    .term-dot { width: 11px; height: 11px; border-radius: 50%; }
+    .term-dot.red    { background: var(--red); }
+    .term-dot.yellow { background: var(--yellow); }
+    .term-dot.green  { background: var(--green); }
+    .term-title {
+      font-size: 0.76rem; color: var(--muted);
+      flex: 1; text-align: center;
+      margin-right: 3.4rem;
+    }
+    .term-body { padding: 1.5rem 1.75rem; }
 
     /* ── HERO ────────────────────────────────────────────────────────── */
     .hero {
       min-height: 100vh;
       display: flex; align-items: center; justify-content: center;
-      text-align: center;
-      padding: 6rem 1.5rem 4rem;
+      padding: 6.5rem 1.5rem 4rem;
       position: relative;
-      overflow: hidden;
     }
-    .hero::before {
-      content: '';
-      position: absolute; inset: 0;
-      background:
-        radial-gradient(ellipse 60% 50% at 50% 0%, rgba(59,130,246,0.12) 0%, transparent 70%),
-        radial-gradient(ellipse 40% 40% at 80% 60%, rgba(6,182,212,0.07) 0%, transparent 60%);
-      pointer-events: none;
+    .hero-inner { width: 100%; max-width: 740px; }
+    .status-tag {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      font-size: 0.76rem; color: var(--green);
+      margin-bottom: 1.25rem;
     }
-    .hero-content { position: relative; max-width: 760px; }
-    .hero-tag {
-      display: inline-block;
-      background: rgba(59,130,246,0.12);
-      border: 1px solid rgba(59,130,246,0.3);
-      color: var(--accent);
-      font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em;
-      text-transform: uppercase;
-      padding: 0.3rem 0.9rem; border-radius: 999px;
-      margin-bottom: 1.5rem;
+    .status-tag .led {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse 2s ease-in-out infinite;
     }
-    .hero h1 {
-      font-size: clamp(2.8rem, 7vw, 5rem);
-      font-weight: 800; letter-spacing: -2px; line-height: 1.05;
-      margin-bottom: 1rem;
-      background: linear-gradient(160deg, #fff 30%, #94a3b8 100%);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-    }
-    .typewriter-line {
-      font-size: clamp(1.1rem, 3vw, 1.5rem);
-      color: var(--accent2);
-      font-weight: 600; letter-spacing: -0.3px;
-      margin-bottom: 1.5rem;
-      min-height: 2rem;
-    }
-    .cursor {
-      display: inline-block; width: 2px; height: 1.2em;
-      background: var(--accent2); margin-left: 2px;
-      vertical-align: middle;
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    .boot-lines { min-height: 15.5rem; }
+    .boot-line { white-space: pre-wrap; word-break: break-word; }
+    .boot-cmd  { color: var(--fg); }
+    .boot-cmd .p { color: var(--prompt); }
+    .boot-out  { color: var(--muted); margin: 0.15rem 0 1.05rem 1.1rem; }
+    .boot-check { color: var(--green); }
+    .boot-check .n { color: var(--fg); }
+    .cursor-blk {
+      display: inline-block; width: 0.55em; height: 1.05em;
+      background: var(--prompt); vertical-align: -0.15em;
       animation: blink 1s step-end infinite;
     }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-    .hero-pitch {
-      font-size: 1.05rem; color: var(--muted); max-width: 560px;
-      margin: 0 auto 2.5rem; line-height: 1.75;
-    }
-    .hero-pitch strong { color: var(--text); }
-    .hero-ctas { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+
+    .hero-ctas { display: flex; gap: 0.9rem; flex-wrap: wrap; margin-top: 1.75rem; }
     .btn {
       display: inline-flex; align-items: center; gap: 0.4rem;
-      padding: 0.7rem 1.6rem; border-radius: 8px;
-      font-size: 0.95rem; font-weight: 600; text-decoration: none;
+      padding: 0.6rem 1.3rem; border-radius: 6px;
+      font-family: var(--mono);
+      font-size: 0.85rem; font-weight: 600; text-decoration: none;
+      border: 1px solid var(--border-brt);
       transition: all 0.2s;
     }
     .btn-primary {
-      background: var(--accent); color: #fff;
+      background: rgba(74,222,128,0.1); color: var(--prompt); border-color: rgba(74,222,128,0.35);
     }
-    .btn-primary:hover { background: #2563eb; transform: translateY(-1px); }
-    .btn-ghost {
-      border: 1px solid var(--border); color: var(--text);
-    }
-    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+    .btn-primary:hover { background: rgba(74,222,128,0.18); transform: translateY(-1px); }
+    .btn-ghost { color: var(--fg); }
+    .btn-ghost:hover { border-color: var(--muted); transform: translateY(-1px); }
+
     .hero-stats {
-      display: flex; gap: 2.5rem; justify-content: center; flex-wrap: wrap;
-      margin-top: 3.5rem; padding-top: 2.5rem;
-      border-top: 1px solid var(--border);
+      display: flex; gap: 2.25rem; flex-wrap: wrap;
+      margin-top: 3rem; padding-top: 1.75rem;
+      border-top: 1px dashed var(--border);
     }
-    .stat { text-align: center; }
-    .stat-num { font-size: 1.8rem; font-weight: 800; color: var(--accent); letter-spacing: -1px; }
-    .stat-label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .stat-num { font-size: 1.5rem; font-weight: 700; color: var(--prompt); }
+    .stat-label { font-size: 0.72rem; color: var(--muted); }
 
     /* ── SECTION SHARED ──────────────────────────────────────────────── */
-    section { padding: 5rem 1.5rem; }
-    .container { max-width: 1100px; margin: 0 auto; }
-    .section-label {
-      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.12em;
-      text-transform: uppercase; color: var(--accent);
-      margin-bottom: 0.5rem;
+    section { padding: 4.5rem 1.5rem; }
+    .container { max-width: 1080px; margin: 0 auto; }
+    .section-comment {
+      font-size: 0.82rem; color: var(--dim);
+      margin-bottom: 0.6rem;
     }
+    .section-comment::before { content: '# '; }
     .section-title {
-      font-size: clamp(1.8rem, 4vw, 2.5rem);
-      font-weight: 800; letter-spacing: -1px; line-height: 1.15;
-      margin-bottom: 0.75rem;
+      font-size: clamp(1.5rem, 3vw, 1.9rem);
+      font-weight: 700; letter-spacing: -0.5px;
+      margin-bottom: 0.6rem;
+      display: flex; align-items: baseline; gap: 0.6rem;
     }
-    .section-sub { color: var(--muted); max-width: 520px; margin-bottom: 3rem; }
+    .section-title .p { color: var(--prompt); font-size: 0.85em; }
+    .section-sub { color: var(--muted); max-width: 540px; margin-bottom: 2.5rem; font-size: 0.9rem; }
 
-    /* ── PROJECTS ────────────────────────────────────────────────────── */
+    /* ── PROJECTS: status table ─────────────────────────────────────── */
     #projects { background: var(--bg2); }
+    .status-table { margin-bottom: 2.5rem; }
+    .status-row {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0.4rem 0; font-size: 0.85rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .status-row:last-child { border-bottom: none; }
+    .status-row .name { color: var(--fg); flex: 0 0 260px; }
+    .status-row .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+    .status-row .up { color: var(--green); flex: 0 0 60px; }
+    .status-row .ci { color: var(--dim); }
+
     .projects-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
-      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fit, minmax(460px, 1fr));
+      gap: 1.25rem;
     }
-    .project-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.75rem;
-      display: flex; flex-direction: column; gap: 1rem;
-      transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
-      position: relative; overflow: hidden;
+    .proj-title { font-size: 0.86rem; }
+    .proj-desc {
+      font-size: 0.87rem; color: #a8b8b2; line-height: 1.75;
+      margin-bottom: 0.9rem;
     }
-    .project-card::before {
-      content: '';
-      position: absolute; top: 0; left: 0; right: 0; height: 3px;
-      border-radius: var(--radius) var(--radius) 0 0;
+    .proj-note {
+      font-size: 0.8rem; color: var(--muted);
+      background: rgba(255,255,255,0.025);
+      border-left: 2px solid var(--amber);
+      padding: 0.6rem 0.85rem;
+      margin-bottom: 1rem;
     }
-    .project-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
-    }
-    .card-blue::before  { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
-    .card-green::before { background: linear-gradient(90deg, var(--green), #34d399); }
-    .card-orange::before{ background: linear-gradient(90deg, var(--orange), #fbbf24); }
-    .card-purple::before{ background: linear-gradient(90deg, var(--purple), #a78bfa); }
-    .card-blue:hover  { border-color: var(--accent); }
-    .card-green:hover { border-color: var(--green); }
-    .card-orange:hover{ border-color: var(--orange); }
-    .card-purple:hover{ border-color: var(--purple); }
-
-    .project-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; }
-    .project-icon {
-      width: 44px; height: 44px; border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.3rem; flex-shrink: 0;
-    }
-    .icon-blue   { background: rgba(59,130,246,0.15); }
-    .icon-green  { background: rgba(16,185,129,0.15); }
-    .icon-orange { background: rgba(245,158,11,0.15); }
-    .icon-purple { background: rgba(139,92,246,0.15); }
-
-    .project-name {
-      font-size: 1.1rem; font-weight: 700; letter-spacing: -0.3px;
-      margin-bottom: 0.2rem;
-    }
-    .project-subtitle { font-size: 0.82rem; color: var(--muted); }
-    .project-link {
-      color: var(--muted); text-decoration: none; font-size: 0.85rem;
-      display: flex; align-items: center; gap: 0.3rem; white-space: nowrap;
-      transition: color 0.2s;
-    }
-    .project-link:hover { color: var(--text); }
-    .project-desc { font-size: 0.92rem; color: #94a3b8; line-height: 1.7; }
-    .project-highlight {
-      font-size: 0.82rem; color: var(--muted);
-      background: rgba(255,255,255,0.04);
-      border: 1px solid var(--border);
-      border-radius: 6px; padding: 0.6rem 0.85rem;
-      display: flex; align-items: flex-start; gap: 0.5rem;
-    }
-    .project-highlight::before { content: '→'; color: var(--accent); flex-shrink: 0; }
+    .proj-note .lbl { color: var(--amber); }
     .tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
     .tag {
-      font-size: 0.73rem; font-weight: 600;
-      padding: 0.22rem 0.65rem; border-radius: 999px;
-      background: rgba(255,255,255,0.06); color: #94a3b8;
-      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 0.72rem; font-family: var(--mono);
+      padding: 0.15rem 0.5rem; border-radius: 4px;
+      background: rgba(34,211,238,0.07); color: var(--cyan);
+      border: 1px solid rgba(34,211,238,0.18);
     }
+    .proj-link-row { display: flex; justify-content: flex-end; margin-top: 0.9rem; }
+    .proj-link {
+      color: var(--muted); text-decoration: none; font-size: 0.8rem;
+      transition: color 0.2s;
+    }
+    .proj-link:hover { color: var(--prompt); }
 
-    /* ── SKILLS ──────────────────────────────────────────────────────── */
-    .skills-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-      gap: 1.25rem;
-    }
-    .skill-group {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.4rem;
-    }
-    .skill-group-title {
-      font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em;
-      text-transform: uppercase; color: var(--accent);
-      margin-bottom: 1rem;
-      display: flex; align-items: center; gap: 0.5rem;
-    }
-    .skill-group-title .dot {
-      width: 6px; height: 6px; border-radius: 50%;
-      background: var(--accent); flex-shrink: 0;
-    }
-    .skill-pills { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-    .skill-pill {
-      font-size: 0.82rem; padding: 0.3rem 0.75rem;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.1);
-      border-radius: 6px; color: var(--text);
-    }
+    /* ── SKILLS: yaml block ─────────────────────────────────────────── */
+    .yaml-block { font-size: 0.86rem; }
+    .yaml-sec { margin-bottom: 1.3rem; }
+    .yaml-sec:last-child { margin-bottom: 0; }
+    .yaml-key { color: var(--cyan); }
+    .yaml-item { color: var(--fg); margin-left: 1.4rem; }
+    .yaml-dash { color: var(--dim); }
 
-    /* ── TRAINING ────────────────────────────────────────────────────── */
+    /* ── TRAINING: ls listing ───────────────────────────────────────── */
     #training { background: var(--bg2); }
-    .training-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 1.25rem;
-    }
-    .provider-card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 1.5rem;
-    }
-    .provider-header {
-      display: flex; align-items: center; gap: 0.75rem;
-      margin-bottom: 1.1rem;
-    }
-    .provider-badge {
-      width: 36px; height: 36px; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 0.7rem; font-weight: 800; letter-spacing: 0.05em;
-      flex-shrink: 0;
-    }
-    .badge-comptia { background: #c8102e; color: #fff; }
-    .badge-azure   { background: #0078d4; color: #fff; }
-    .badge-aws     { background: #ff9900; color: #111; }
-    .badge-gcp     { background: #4285f4; color: #fff; }
-    .badge-cbc     { background: #003366; color: #fff; }
-
-    .provider-name { font-size: 0.9rem; font-weight: 700; }
-    .course-list { list-style: none; display: flex; flex-direction: column; gap: 0.55rem; }
-    .course-list li {
-      font-size: 0.83rem; color: #94a3b8;
-      display: flex; align-items: baseline; gap: 0.5rem;
-    }
-    .course-list li::before {
-      content: '✓'; color: var(--green); font-size: 0.75rem; flex-shrink: 0;
-    }
+    .ls-block { font-size: 0.86rem; }
+    .ls-dir { color: var(--blue); margin-top: 1.1rem; }
+    .ls-dir:first-child { margin-top: 0; }
+    .ls-dir .perm { color: var(--dim); margin-right: 0.75rem; }
+    .ls-item { color: var(--fg); margin-left: 1.4rem; }
+    .ls-item .check { color: var(--green); margin-right: 0.5rem; }
 
     /* ── CONTACT ─────────────────────────────────────────────────────── */
-    #contact {
-      text-align: center; padding: 5rem 1.5rem;
-    }
-    .contact-inner {
-      max-width: 560px; margin: 0 auto;
-    }
-    .contact-links {
-      display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
-      margin-top: 2rem;
-    }
+    #contact { padding-bottom: 5.5rem; }
+    .contact-out { color: var(--muted); margin: 0.9rem 0 1.5rem; line-height: 1.8; font-size: 0.88rem; }
+    .contact-links { display: flex; gap: 0.9rem; flex-wrap: wrap; }
 
     /* ── FOOTER ──────────────────────────────────────────────────────── */
     footer {
       border-top: 1px solid var(--border);
       padding: 1.5rem;
       text-align: center;
-      font-size: 0.82rem; color: var(--muted);
+      font-size: 0.78rem; color: var(--dim);
     }
+    footer a { color: var(--dim); text-decoration: none; }
+    footer a:hover { color: var(--muted); }
 
     /* ── SCROLL ANIMATION ────────────────────────────────────────────── */
     .fade-up {
-      opacity: 0; transform: translateY(24px);
-      transition: opacity 0.55s ease, transform 0.55s ease;
+      opacity: 0; transform: translateY(18px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
     }
     .fade-up.visible { opacity: 1; transform: none; }
 
@@ -325,7 +268,9 @@
     @media (max-width: 640px) {
       .nav-links { display: none; }
       .projects-grid { grid-template-columns: 1fr; }
-      .hero-stats { gap: 1.5rem; }
+      .hero-stats { gap: 1.25rem; }
+      .status-row .name { flex-basis: 170px; font-size: 0.78rem; }
+      .term-body { padding: 1.25rem 1.1rem; }
     }
   </style>
 </head>
@@ -334,47 +279,52 @@
 <!-- NAV -->
 <nav>
   <div class="nav-inner">
-    <a href="#" class="logo">Kingsley Anim</a>
+    <a href="#" class="logo"><span class="prompt-char">~</span>kingsley-anim</a>
     <ul class="nav-links">
-      <li><a href="#projects">Projects</a></li>
-      <li><a href="#skills">Skills</a></li>
-      <li><a href="#training">Training</a></li>
-      <li><a href="#contact">Contact</a></li>
+      <li><a href="#projects">~/projects</a></li>
+      <li><a href="#skills">~/skills</a></li>
+      <li><a href="#training">~/training</a></li>
+      <li><a href="#contact">~/contact</a></li>
     </ul>
   </div>
 </nav>
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-content">
-    <span class="hero-tag">Available for Platform / SRE / DevOps roles</span>
-    <h1>Kingsley Anim</h1>
-    <div class="typewriter-line">
-      <span id="typewriter"></span><span class="cursor"></span>
+  <div class="hero-inner">
+    <span class="status-tag"><span class="led"></span>open to work — platform / sre / devops / ai infrastructure</span>
+
+    <div class="term-window">
+      <div class="term-titlebar">
+        <div class="term-dots">
+          <span class="term-dot red"></span>
+          <span class="term-dot yellow"></span>
+          <span class="term-dot green"></span>
+        </div>
+        <div class="term-title">kingsley@portfolio — zsh — 80×24</div>
+      </div>
+      <div class="term-body">
+        <div class="boot-lines" id="boot"></div>
+      </div>
     </div>
-    <p class="hero-pitch">
-      I build <strong>observable, automated, and scalable infrastructure</strong> — from
-      federated multi-cluster Kubernetes platforms to AI-powered CI tooling. Every project
-      ships with ADRs, runbooks, and CI that actually blocks bad changes.
-    </p>
+
     <div class="hero-ctas">
-      <a href="#projects" class="btn btn-primary">View Projects</a>
-      <a href="https://github.com/Kanim21" target="_blank" rel="noopener" class="btn btn-ghost">
-        GitHub ↗
-      </a>
+      <a href="#projects" class="btn btn-primary">./view_projects.sh</a>
+      <a href="https://github.com/Kanim21" target="_blank" rel="noopener" class="btn btn-ghost">github ↗</a>
     </div>
+
     <div class="hero-stats">
       <div class="stat">
-        <div class="stat-num">4</div>
-        <div class="stat-label">Production-shaped projects</div>
+        <div class="stat-num">5</div>
+        <div class="stat-label">production-shaped projects</div>
       </div>
       <div class="stat">
         <div class="stat-num">14+</div>
-        <div class="stat-label">Architecture Decision Records</div>
+        <div class="stat-label">architecture decision records</div>
       </div>
       <div class="stat">
         <div class="stat-num">9</div>
-        <div class="stat-label">Cloud & infra certifications</div>
+        <div class="stat-label">cloud & infra certifications</div>
       </div>
       <div class="stat">
         <div class="stat-num">100%</div>
@@ -387,160 +337,194 @@
 <!-- PROJECTS -->
 <section id="projects">
   <div class="container">
-    <p class="section-label">Work</p>
-    <h2 class="section-title">Projects</h2>
+    <p class="section-comment">work</p>
+    <h2 class="section-title"><span class="p">$</span> ls ~/projects</h2>
     <p class="section-sub">
       Every repo is locally runnable, CI-validated, and honest about what's demo-grade vs production.
     </p>
+
+    <div class="term-window fade-up" style="margin-bottom:2.5rem;">
+      <div class="term-titlebar">
+        <div class="term-dots">
+          <span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span>
+        </div>
+        <div class="term-title">status.yaml</div>
+      </div>
+      <div class="term-body">
+        <div class="status-table">
+          <div class="status-row"><span class="dot"></span><span class="name">hospital-ai-orchestrator</span><span class="up">● UP</span><span class="ci">ci: passing · 26 tests · 92% coverage</span></div>
+          <div class="status-row"><span class="dot"></span><span class="name">omni-obs-platform</span><span class="up">● UP</span><span class="ci">ci: passing</span></div>
+          <div class="status-row"><span class="dot"></span><span class="name">production-platform</span><span class="up">● UP</span><span class="ci">ci: passing</span></div>
+          <div class="status-row"><span class="dot"></span><span class="name">enterprise-network-platform</span><span class="up">● UP</span><span class="ci">ci: passing</span></div>
+          <div class="status-row"><span class="dot"></span><span class="name">pipeline-surgeon-labs</span><span class="up">● UP</span><span class="ci">ci: passing · 6/6 fixtures</span></div>
+        </div>
+      </div>
+    </div>
+
     <div class="projects-grid">
 
-      <!-- omni-obs-platform -->
-      <div class="project-card card-blue fade-up">
-        <div class="project-header">
-          <div>
-            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.25rem;">
-              <div class="project-icon icon-blue">📡</div>
-              <div>
-                <div class="project-name">omni-obs-platform</div>
-                <div class="project-subtitle">Federated Multi-Cluster Observability</div>
-              </div>
-            </div>
+      <!-- hospital-ai-orchestrator -->
+      <div class="term-window fade-up">
+        <div class="term-titlebar">
+          <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
+          <div class="term-title proj-title">hospital-ai-orchestrator</div>
+        </div>
+        <div class="term-body">
+          <p class="proj-desc">
+            Multi-agent LangGraph system simulating hospital bed tracking, discharge planning,
+            and transport dispatch behind a Model Context Protocol (MCP) tool layer (FastMCP).
+            Static human-in-the-loop approval gates elevated-risk actions; every FHIR bundle is
+            validated against R4B models, and free text passes through a Presidio-backed PHI
+            guardrail before it ever reaches a log.
+          </p>
+          <div class="proj-note">
+            <span class="lbl"># note:</span> every mutating node runs inside an error boundary
+            that routes tool/validation failures to a reportable FAILED state instead of an
+            unhandled exception — added after a self-run audit caught a plaintext PHI leak and
+            missing error handling, both fixed same-day as atomic, tested commits.
           </div>
-          <a href="https://github.com/Kanim21/omni-obs-platform" target="_blank" rel="noopener" class="project-link">
-            GitHub ↗
-          </a>
+          <div class="tags">
+            <span class="tag">LangGraph</span>
+            <span class="tag">FastMCP / MCP</span>
+            <span class="tag">Presidio</span>
+            <span class="tag">FHIR R4</span>
+            <span class="tag">Human-in-the-Loop</span>
+            <span class="tag">FastAPI</span>
+            <span class="tag">Streamlit</span>
+          </div>
+          <div class="proj-link-row">
+            <a href="https://github.com/Kanim21/hospital-ai-orchestrator" target="_blank" rel="noopener" class="proj-link">github ↗</a>
+          </div>
         </div>
-        <p class="project-desc">
-          Production-shaped observability platform federating metrics from three simulated
-          cloud regions (AWS / Azure / GCP) via an OTel → Prometheus → Thanos → Grafana
-          pipeline. GitOps delivery via ArgoCD with verified end-to-end reconciliation.
-          Runnable locally on one kind cluster in under 3 minutes.
-        </p>
-        <div class="project-highlight">
-          SLO burn-rate alerts (14.4× fast / 6× slow), ADRs, incident runbooks, and Kustomize
-          base + components + overlays — the same pattern a real multi-region platform uses.
+      </div>
+
+      <!-- omni-obs-platform -->
+      <div class="term-window fade-up">
+        <div class="term-titlebar">
+          <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
+          <div class="term-title proj-title">omni-obs-platform</div>
         </div>
-        <div class="tags">
-          <span class="tag">OpenTelemetry</span>
-          <span class="tag">Prometheus</span>
-          <span class="tag">Thanos</span>
-          <span class="tag">Grafana</span>
-          <span class="tag">ArgoCD</span>
-          <span class="tag">Kustomize</span>
-          <span class="tag">kind</span>
-          <span class="tag">SLO / SRE</span>
+        <div class="term-body">
+          <p class="proj-desc">
+            Production-shaped observability platform federating metrics from three simulated
+            cloud regions (AWS / Azure / GCP) via an OTel → Prometheus → Thanos → Grafana
+            pipeline. GitOps delivery via ArgoCD with verified end-to-end reconciliation.
+            Runnable locally on one kind cluster in under 3 minutes.
+          </p>
+          <div class="proj-note">
+            <span class="lbl"># note:</span> SLO burn-rate alerts (14.4× fast / 6× slow), ADRs,
+            incident runbooks, and Kustomize base + components + overlays — the same pattern a
+            real multi-region platform uses.
+          </div>
+          <div class="tags">
+            <span class="tag">OpenTelemetry</span>
+            <span class="tag">Prometheus</span>
+            <span class="tag">Thanos</span>
+            <span class="tag">Grafana</span>
+            <span class="tag">ArgoCD</span>
+            <span class="tag">Kustomize</span>
+            <span class="tag">kind</span>
+          </div>
+          <div class="proj-link-row">
+            <a href="https://github.com/Kanim21/omni-obs-platform" target="_blank" rel="noopener" class="proj-link">github ↗</a>
+          </div>
         </div>
       </div>
 
       <!-- production-platform -->
-      <div class="project-card card-green fade-up">
-        <div class="project-header">
-          <div>
-            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.25rem;">
-              <div class="project-icon icon-green">☁️</div>
-              <div>
-                <div class="project-name">production-platform</div>
-                <div class="project-subtitle">AWS Platform Reference Architecture</div>
-              </div>
-            </div>
+      <div class="term-window fade-up">
+        <div class="term-titlebar">
+          <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
+          <div class="term-title proj-title">production-platform</div>
+        </div>
+        <div class="term-body">
+          <p class="proj-desc">
+            Multi-tier e-commerce backend on EKS + Aurora PostgreSQL, designed for 10,000
+            concurrent users and 10× Black Friday traffic spikes. Full IaC with Terraform
+            modules per environment (dev / staging / prod), OIDC-based CI with zero static
+            credentials, and defence-in-depth security validated by tflint + Checkov.
+          </p>
+          <div class="proj-note">
+            <span class="lbl"># note:</span> 5 ADRs (EKS vs ECS, Terraform vs CDK, Prometheus
+            vs CloudWatch), failure scenario table with per-scenario RTO, and a scaling path to
+            1M users.
           </div>
-          <a href="https://github.com/Kanim21/production-platform" target="_blank" rel="noopener" class="project-link">
-            GitHub ↗
-          </a>
-        </div>
-        <p class="project-desc">
-          Multi-tier e-commerce backend on EKS + Aurora PostgreSQL, designed for 10,000
-          concurrent users and 10× Black Friday traffic spikes. Full IaC with Terraform
-          modules per environment (dev / staging / prod), OIDC-based CI with zero static
-          credentials, and defence-in-depth security validated by tflint + Checkov.
-        </p>
-        <div class="project-highlight">
-          5 ADRs (EKS vs ECS, Terraform vs CDK, Prometheus vs CloudWatch), failure scenario
-          table with per-scenario RTO, and a scaling path to 1M users.
-        </div>
-        <div class="tags">
-          <span class="tag">Terraform</span>
-          <span class="tag">AWS EKS</span>
-          <span class="tag">Aurora PostgreSQL</span>
-          <span class="tag">Helm</span>
-          <span class="tag">OIDC / IRSA</span>
-          <span class="tag">Checkov</span>
-          <span class="tag">Go</span>
-          <span class="tag">CloudFront / ALB</span>
+          <div class="tags">
+            <span class="tag">Terraform</span>
+            <span class="tag">AWS EKS</span>
+            <span class="tag">Aurora PostgreSQL</span>
+            <span class="tag">Helm</span>
+            <span class="tag">OIDC / IRSA</span>
+            <span class="tag">Checkov</span>
+            <span class="tag">Go</span>
+          </div>
+          <div class="proj-link-row">
+            <a href="https://github.com/Kanim21/production-platform" target="_blank" rel="noopener" class="proj-link">github ↗</a>
+          </div>
         </div>
       </div>
 
       <!-- enterprise-network-platform -->
-      <div class="project-card card-orange fade-up">
-        <div class="project-header">
-          <div>
-            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.25rem;">
-              <div class="project-icon icon-orange">🌐</div>
-              <div>
-                <div class="project-name">enterprise-network-platform</div>
-                <div class="project-subtitle">Network Automation & Simulation</div>
-              </div>
-            </div>
+      <div class="term-window fade-up">
+        <div class="term-titlebar">
+          <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
+          <div class="term-title proj-title">enterprise-network-platform</div>
+        </div>
+        <div class="term-body">
+          <p class="proj-desc">
+            Multi-site enterprise network simulation for ~5,000 users: 2-spine / 4-leaf
+            EVPN-VXLAN fabric with eBGP underlay, OSPF WAN, and IKEv2/BGP hybrid connectivity
+            to AWS Transit Gateway. Automated with Nornir and Ansible; Batfish offline config
+            analysis runs in CI to catch routing policy errors before they touch a device.
+          </p>
+          <div class="proj-note">
+            <span class="lbl"># note:</span> Batfish in CI + pyATS live assertions — catches
+            control-plane errors before deployment, the pattern senior NetDevOps engineers
+            reach for on day one.
           </div>
-          <a href="https://github.com/Kanim21/enterprise-network-platform" target="_blank" rel="noopener" class="project-link">
-            GitHub ↗
-          </a>
-        </div>
-        <p class="project-desc">
-          Multi-site enterprise network simulation for ~5,000 users: 2-spine / 4-leaf
-          EVPN-VXLAN fabric with eBGP underlay, OSPF WAN, and IKEv2/BGP hybrid connectivity
-          to AWS Transit Gateway. Automated with Nornir and Ansible; Batfish offline config
-          analysis runs in CI to catch routing policy errors before they touch a device.
-        </p>
-        <div class="project-highlight">
-          Batfish in CI + pyATS live assertions — catches control-plane errors before deployment,
-          the pattern senior NetDevOps engineers reach for on day one.
-        </div>
-        <div class="tags">
-          <span class="tag">Containerlab</span>
-          <span class="tag">EVPN-VXLAN</span>
-          <span class="tag">BGP / OSPF</span>
-          <span class="tag">Nornir</span>
-          <span class="tag">Ansible</span>
-          <span class="tag">Batfish</span>
-          <span class="tag">pyATS</span>
-          <span class="tag">AWS TGW</span>
+          <div class="tags">
+            <span class="tag">Containerlab</span>
+            <span class="tag">EVPN-VXLAN</span>
+            <span class="tag">BGP / OSPF</span>
+            <span class="tag">Nornir</span>
+            <span class="tag">Ansible</span>
+            <span class="tag">Batfish</span>
+            <span class="tag">pyATS</span>
+          </div>
+          <div class="proj-link-row">
+            <a href="https://github.com/Kanim21/enterprise-network-platform" target="_blank" rel="noopener" class="proj-link">github ↗</a>
+          </div>
         </div>
       </div>
 
       <!-- pipeline-surgeon-labs -->
-      <div class="project-card card-purple fade-up">
-        <div class="project-header">
-          <div>
-            <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.25rem;">
-              <div class="project-icon icon-purple">🤖</div>
-              <div>
-                <div class="project-name">pipeline-surgeon-labs</div>
-                <div class="project-subtitle">LLM-Powered CI Failure Agent</div>
-              </div>
-            </div>
+      <div class="term-window fade-up">
+        <div class="term-titlebar">
+          <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
+          <div class="term-title proj-title">pipeline-surgeon-labs</div>
+        </div>
+        <div class="term-body">
+          <p class="proj-desc">
+            GitHub Actions agent that reads Maven build logs, classifies failures using
+            Claude's tool-use API, and opens pull requests with proposed fixes — never
+            auto-committing to main. Includes a secret redactor, token budget per run, and a
+            test fixture corpus of 6 known-failure cases.
+          </p>
+          <div class="proj-note">
+            <span class="lbl"># note:</span> 100% classification accuracy (6/6) across all
+            three failure classes · $0.05/run · 20.8s mean latency · every fix goes through
+            human review.
           </div>
-          <a href="https://github.com/Kanim21/pipeline-surgeon-labs" target="_blank" rel="noopener" class="project-link">
-            GitHub ↗
-          </a>
-        </div>
-        <p class="project-desc">
-          GitHub Actions agent that reads Maven build logs, classifies failures using
-          Claude's tool-use API, and opens pull requests with proposed fixes — never
-          auto-committing to main. Includes a secret redactor, token budget per run,
-          and a test fixture corpus of 6 known-failure cases.
-        </p>
-        <div class="project-highlight">
-          100% classification accuracy (6/6) across all three failure classes · $0.05/run ·
-          20.8s mean latency · every fix goes through human review.
-        </div>
-        <div class="tags">
-          <span class="tag">Python</span>
-          <span class="tag">Claude API</span>
-          <span class="tag">LLM Tool Use</span>
-          <span class="tag">GitHub Actions</span>
-          <span class="tag">Maven</span>
-          <span class="tag">Structured Output</span>
+          <div class="tags">
+            <span class="tag">Python</span>
+            <span class="tag">Claude API</span>
+            <span class="tag">LLM Tool Use</span>
+            <span class="tag">GitHub Actions</span>
+            <span class="tag">Maven</span>
+          </div>
+          <div class="proj-link-row">
+            <a href="https://github.com/Kanim21/pipeline-surgeon-labs" target="_blank" rel="noopener" class="proj-link">github ↗</a>
+          </div>
         </div>
       </div>
 
@@ -551,107 +535,95 @@
 <!-- SKILLS -->
 <section id="skills">
   <div class="container">
-    <p class="section-label">Capabilities</p>
-    <h2 class="section-title">Skills</h2>
+    <p class="section-comment">capabilities</p>
+    <h2 class="section-title"><span class="p">$</span> cat ~/skills.yaml</h2>
     <p class="section-sub">Tools and technologies I reach for in production-shaped work.</p>
-    <div class="skills-grid">
 
-      <div class="skill-group fade-up">
-        <div class="skill-group-title"><span class="dot"></span>Cloud Platforms</div>
-        <div class="skill-pills">
-          <span class="skill-pill">AWS (EKS, Aurora, TGW, S3, IAM, CloudFront)</span>
-          <span class="skill-pill">Azure</span>
-          <span class="skill-pill">Google Cloud</span>
-          <span class="skill-pill">OIDC / IRSA</span>
-          <span class="skill-pill">Secrets Manager</span>
-        </div>
+    <div class="term-window fade-up">
+      <div class="term-titlebar">
+        <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
+        <div class="term-title">skills.yaml</div>
       </div>
+      <div class="term-body yaml-block">
 
-      <div class="skill-group fade-up">
-        <div class="skill-group-title"><span class="dot"></span>Infrastructure as Code</div>
-        <div class="skill-pills">
-          <span class="skill-pill">Terraform</span>
-          <span class="skill-pill">Kustomize</span>
-          <span class="skill-pill">Helm</span>
-          <span class="skill-pill">tflint</span>
-          <span class="skill-pill">Checkov</span>
+        <div class="yaml-sec">
+          <div class="yaml-key">cloud_platforms:</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> AWS (EKS, Aurora, TGW, S3, IAM, CloudFront)</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Azure</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Google Cloud</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> OIDC / IRSA</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Secrets Manager</div>
         </div>
-      </div>
 
-      <div class="skill-group fade-up">
-        <div class="skill-group-title"><span class="dot"></span>Kubernetes & GitOps</div>
-        <div class="skill-pills">
-          <span class="skill-pill">EKS</span>
-          <span class="skill-pill">kind</span>
-          <span class="skill-pill">ArgoCD</span>
-          <span class="skill-pill">Server-side Apply</span>
-          <span class="skill-pill">kubeconform</span>
-          <span class="skill-pill">kube-linter</span>
-          <span class="skill-pill">PodSecurityContext</span>
+        <div class="yaml-sec">
+          <div class="yaml-key">infrastructure_as_code:</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Terraform</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Kustomize</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Helm</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> tflint</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Checkov</div>
         </div>
-      </div>
 
-      <div class="skill-group fade-up">
-        <div class="skill-group-title"><span class="dot"></span>Observability</div>
-        <div class="skill-pills">
-          <span class="skill-pill">OpenTelemetry</span>
-          <span class="skill-pill">Prometheus</span>
-          <span class="skill-pill">Thanos</span>
-          <span class="skill-pill">Grafana</span>
-          <span class="skill-pill">SLOs / Error Budgets</span>
-          <span class="skill-pill">Burn-rate Alerts</span>
-          <span class="skill-pill">SNMP Exporter</span>
+        <div class="yaml-sec">
+          <div class="yaml-key">kubernetes_and_gitops:</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> EKS</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> kind</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> ArgoCD</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Server-side Apply</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> kubeconform / kube-linter</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> PodSecurityContext</div>
         </div>
-      </div>
 
-      <div class="skill-group fade-up">
-        <div class="skill-group-title"><span class="dot"></span>Networking</div>
-        <div class="skill-pills">
-          <span class="skill-pill">BGP / OSPF</span>
-          <span class="skill-pill">EVPN-VXLAN</span>
-          <span class="skill-pill">IKEv2 / IPSec</span>
-          <span class="skill-pill">AWS Transit Gateway</span>
-          <span class="skill-pill">Containerlab</span>
-          <span class="skill-pill">Batfish</span>
-          <span class="skill-pill">FRRouting</span>
+        <div class="yaml-sec">
+          <div class="yaml-key">observability:</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> OpenTelemetry</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Prometheus / Thanos</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Grafana</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> SLOs / Error Budgets</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Burn-rate Alerts</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> SNMP Exporter</div>
         </div>
-      </div>
 
-      <div class="skill-group fade-up">
-        <div class="skill-group-title"><span class="dot"></span>CI/CD & Automation</div>
-        <div class="skill-pills">
-          <span class="skill-pill">GitHub Actions</span>
-          <span class="skill-pill">ShellCheck</span>
-          <span class="skill-pill">Ansible</span>
-          <span class="skill-pill">Nornir</span>
-          <span class="skill-pill">Python</span>
-          <span class="skill-pill">Bash</span>
-          <span class="skill-pill">Go</span>
-          <span class="skill-pill">pyATS</span>
+        <div class="yaml-sec">
+          <div class="yaml-key">networking:</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> BGP / OSPF</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> EVPN-VXLAN</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> IKEv2 / IPSec</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> AWS Transit Gateway</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Containerlab / Batfish</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> FRRouting</div>
         </div>
-      </div>
 
-      <div class="skill-group fade-up">
-        <div class="skill-group-title"><span class="dot"></span>AI & LLM Tooling</div>
-        <div class="skill-pills">
-          <span class="skill-pill">Claude API (Anthropic)</span>
-          <span class="skill-pill">Tool Use / Structured Output</span>
-          <span class="skill-pill">Agentic CI Workflows</span>
-          <span class="skill-pill">Prompt Engineering</span>
+        <div class="yaml-sec">
+          <div class="yaml-key">ci_cd_and_automation:</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> GitHub Actions</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> ShellCheck</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Ansible / Nornir</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Python / Bash / Go</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> pyATS</div>
         </div>
-      </div>
 
-      <div class="skill-group fade-up">
-        <div class="skill-group-title"><span class="dot"></span>Engineering Practices</div>
-        <div class="skill-pills">
-          <span class="skill-pill">Architecture Decision Records</span>
-          <span class="skill-pill">Incident Runbooks</span>
-          <span class="skill-pill">SLO Design</span>
-          <span class="skill-pill">Failure Mode Analysis</span>
-          <span class="skill-pill">Defense-in-depth Security</span>
+        <div class="yaml-sec">
+          <div class="yaml-key">ai_and_llm_tooling:</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Claude API (Anthropic)</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> LangGraph</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Model Context Protocol (MCP)</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Tool Use / Structured Output</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Multi-Agent Orchestration</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Agentic CI Workflows</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Presidio (PII/PHI Redaction)</div>
         </div>
-      </div>
 
+        <div class="yaml-sec">
+          <div class="yaml-key">engineering_practices:</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Architecture Decision Records</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Incident Runbooks</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> SLO Design</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Failure Mode Analysis</div>
+          <div class="yaml-item"><span class="yaml-dash">-</span> Defense-in-depth Security</div>
+        </div>
+
+      </div>
     </div>
   </div>
 </section>
@@ -659,125 +631,152 @@
 <!-- TRAINING -->
 <section id="training">
   <div class="container">
-    <p class="section-label">Education</p>
-    <h2 class="section-title">Training & Certifications</h2>
+    <p class="section-comment">education</p>
+    <h2 class="section-title"><span class="p">$</span> ls -la ~/certifications</h2>
     <p class="section-sub">
       Formal coursework covering cloud platforms, networking, Linux, and systems administration.
     </p>
-    <div class="training-grid">
 
-      <div class="provider-card fade-up">
-        <div class="provider-header">
-          <div class="provider-badge badge-cbc">CBC</div>
-          <div class="provider-name">Canadian Business College</div>
-        </div>
-        <ul class="course-list">
-          <li>Diploma — Cloud Specialist</li>
-        </ul>
+    <div class="term-window fade-up">
+      <div class="term-titlebar">
+        <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
+        <div class="term-title">~/certifications</div>
       </div>
+      <div class="term-body ls-block">
 
-      <div class="provider-card fade-up">
-        <div class="provider-header">
-          <div class="provider-badge badge-comptia">CompTIA</div>
-          <div class="provider-name">CompTIA</div>
-        </div>
-        <ul class="course-list">
-          <li>A+ — OS &amp; PC Hardware Overview</li>
-          <li>Network+ — Networking Concepts, Infrastructure &amp; Security</li>
-          <li>Linux+ — Linux OS Management</li>
-        </ul>
+        <div class="ls-dir"><span class="perm">drwxr-xr-x</span>comptia/</div>
+        <div class="ls-item"><span class="check">✓</span>A+ — OS &amp; PC Hardware Overview</div>
+        <div class="ls-item"><span class="check">✓</span>Network+ — Networking Concepts, Infrastructure &amp; Security</div>
+        <div class="ls-item"><span class="check">✓</span>Linux+ — Linux OS Management</div>
+
+        <div class="ls-dir"><span class="perm">drwxr-xr-x</span>azure/</div>
+        <div class="ls-item"><span class="check">✓</span>Azure Hybrid — Hybrid Cloud with Windows Server</div>
+        <div class="ls-item"><span class="check">✓</span>Azure Administrator (AZ-104 prep)</div>
+        <div class="ls-item"><span class="check">✓</span>Microsoft 365 Administration</div>
+
+        <div class="ls-dir"><span class="perm">drwxr-xr-x</span>aws/</div>
+        <div class="ls-item"><span class="check">✓</span>AWS Certified Cloud Practitioner</div>
+        <div class="ls-item"><span class="check">✓</span>AWS Certified Solutions Architect</div>
+
+        <div class="ls-dir"><span class="perm">drwxr-xr-x</span>gcp/</div>
+        <div class="ls-item"><span class="check">✓</span>Google Cloud Platform Essentials</div>
+
       </div>
-
-      <div class="provider-card fade-up">
-        <div class="provider-header">
-          <div class="provider-badge badge-azure">AZ</div>
-          <div class="provider-name">Microsoft Azure</div>
-        </div>
-        <ul class="course-list">
-          <li>Azure Hybrid — Hybrid Cloud with Windows Server</li>
-          <li>Azure Administrator (AZ-104 prep)</li>
-          <li>Microsoft 365 Administration</li>
-        </ul>
-      </div>
-
-      <div class="provider-card fade-up">
-        <div class="provider-header">
-          <div class="provider-badge badge-aws">AWS</div>
-          <div class="provider-name">Amazon Web Services</div>
-        </div>
-        <ul class="course-list">
-          <li>AWS Certified Cloud Practitioner</li>
-          <li>AWS Certified Solutions Architect</li>
-        </ul>
-      </div>
-
-      <div class="provider-card fade-up">
-        <div class="provider-header">
-          <div class="provider-badge badge-gcp">GCP</div>
-          <div class="provider-name">Google Cloud</div>
-        </div>
-        <ul class="course-list">
-          <li>Google Cloud Platform Essentials</li>
-        </ul>
-      </div>
-
     </div>
   </div>
 </section>
 
 <!-- CONTACT -->
 <section id="contact">
-  <div class="contact-inner fade-up">
-    <p class="section-label" style="justify-content:center;display:flex;">Get in touch</p>
-    <h2 class="section-title">Let's work together</h2>
-    <p style="color:var(--muted);margin-top:0.75rem;line-height:1.75;">
-      I'm looking for platform engineering, SRE, or DevOps roles where I can build
-      observable, automated infrastructure at scale. Open to remote or hybrid.
-    </p>
-    <div class="contact-links">
-      <a href="https://github.com/Kanim21" target="_blank" rel="noopener" class="btn btn-primary">
-        GitHub Profile ↗
-      </a>
-      <a href="https://www.linkedin.com/in/kingsley-anim-a5a7982a5/" target="_blank" rel="noopener" class="btn btn-ghost">
-        LinkedIn ↗
-      </a>
+  <div class="container" style="max-width:640px;">
+    <p class="section-comment">get in touch</p>
+    <h2 class="section-title"><span class="p">$</span> ssh kingsley@opportunities</h2>
+    <div class="term-window fade-up">
+      <div class="term-titlebar">
+        <div class="term-dots"><span class="term-dot red"></span><span class="term-dot yellow"></span><span class="term-dot green"></span></div>
+        <div class="term-title">contact</div>
+      </div>
+      <div class="term-body">
+        <p class="contact-out">
+          I'm looking for platform engineering, SRE, DevOps, or AI infrastructure roles where
+          I can build observable, automated systems at scale — including the infra underneath
+          LLM/agent workloads. Open to remote or hybrid.
+        </p>
+        <div class="contact-links">
+          <a href="https://github.com/Kanim21" target="_blank" rel="noopener" class="btn btn-primary">github ↗</a>
+          <a href="https://www.linkedin.com/in/kingsley-anim-a5a7982a5/" target="_blank" rel="noopener" class="btn btn-ghost">linkedin ↗</a>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
 <!-- FOOTER -->
 <footer>
-  <p>Built by Kingsley Anim · <a href="https://github.com/Kanim21/kanim21.github.io" style="color:var(--muted);text-decoration:none;" target="_blank" rel="noopener">Source ↗</a></p>
+  <p># built by kingsley anim · <a href="https://github.com/Kanim21/kanim21.github.io" target="_blank" rel="noopener">source ↗</a></p>
 </footer>
 
 <script>
-  // Typewriter
-  const titles = [
-    'Platform Engineer',
-    'Site Reliability Engineer',
-    'DevOps Engineer',
-    'Cloud Infrastructure Engineer',
-  ];
-  let ti = 0, ci = 0, deleting = false;
-  const el = document.getElementById('typewriter');
+  // Boot-sequence typing animation
+  const bootEl = document.getElementById('boot');
 
-  function type() {
-    const word = titles[ti];
-    if (!deleting) {
-      el.textContent = word.slice(0, ++ci);
-      if (ci === word.length) { deleting = true; setTimeout(type, 1800); return; }
-    } else {
-      el.textContent = word.slice(0, --ci);
-      if (ci === 0) { deleting = false; ti = (ti + 1) % titles.length; }
-    }
-    setTimeout(type, deleting ? 45 : 80);
+  const sequence = [
+    { cmd: 'whoami' },
+    { out: ['kingsley-anim — platform / sre / ai-infra engineer'] },
+    { cmd: 'cat mission.txt' },
+    { out: [
+        'I build observable, automated infrastructure — and the',
+        'AI systems that increasingly run on top of it.'
+      ] },
+    { cmd: './status.sh --summary' },
+    { check: [
+        '5 production-shaped projects',
+        '14+ architecture decision records',
+        '9 cloud & infra certifications',
+        '100% CI passing across all repos'
+      ] },
+  ];
+
+  function makeCmdLine() {
+    const line = document.createElement('div');
+    line.className = 'boot-line boot-cmd';
+    const p = document.createElement('span');
+    p.className = 'p';
+    p.textContent = '$ ';
+    line.appendChild(p);
+    const txt = document.createElement('span');
+    line.appendChild(txt);
+    bootEl.appendChild(line);
+    return txt;
   }
-  type();
+
+  function typeInto(el, text, speed, done) {
+    let i = 0;
+    (function step() {
+      if (i <= text.length) {
+        el.textContent = text.slice(0, i++);
+        setTimeout(step, speed);
+      } else if (done) {
+        done();
+      }
+    })();
+  }
+
+  async function runSequence() {
+    for (const step of sequence) {
+      if (step.cmd) {
+        const el = makeCmdLine();
+        await new Promise(res => typeInto(el, step.cmd, 45, res));
+        await new Promise(res => setTimeout(res, 220));
+      } else if (step.out) {
+        for (const line of step.out) {
+          const d = document.createElement('div');
+          d.className = 'boot-line boot-out';
+          d.textContent = line;
+          bootEl.appendChild(d);
+          await new Promise(res => setTimeout(res, 90));
+        }
+        await new Promise(res => setTimeout(res, 200));
+      } else if (step.check) {
+        for (const line of step.check) {
+          const d = document.createElement('div');
+          d.className = 'boot-line boot-out boot-check';
+          d.innerHTML = '✓ <span class="n">' + line + '</span>';
+          bootEl.appendChild(d);
+          await new Promise(res => setTimeout(res, 130));
+        }
+        await new Promise(res => setTimeout(res, 200));
+      }
+    }
+    const finalPrompt = makeCmdLine();
+    finalPrompt.innerHTML = '<span class="cursor-blk"></span>';
+  }
+  runSequence();
 
   // Scroll fade-in
   const observer = new IntersectionObserver(
     entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); }),
-    { threshold: 0.12 }
+    { threshold: 0.1 }
   );
   document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
 </script>
